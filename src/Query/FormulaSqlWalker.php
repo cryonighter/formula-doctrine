@@ -57,7 +57,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         $formulaFragments = [];
 
         foreach ($registry->getForClass($entityClass) as $meta) {
-            $resolvedSql = str_replace('{this}', $sqlTableAlias, $meta->sql);
+            $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
             $formulaFragments[] = sprintf('%s AS %s', $resolvedSql, $meta->alias);
         }
 
@@ -68,6 +68,31 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         // Inject formula expressions right after the SELECT ... part,
         // before the FROM clause.
         return $this->injectBeforeFrom($sql, implode(', ', $formulaFragments));
+    }
+
+    /**
+     * Replaces the {this} placeholder with the actual SQL table alias.
+     */
+    protected function resolvePlaceholder(string $sql, string $tableAlias): string
+    {
+        return str_replace('{this}', $tableAlias, $sql);
+    }
+
+    /**
+     * Injects additional SELECT expressions before the FROM clause.
+     * Works by finding the first occurrence of " FROM " and inserting before it.
+     */
+    protected function injectBeforeFrom(string $sql, string $expressions): string
+    {
+        $fromPos = stripos($sql, ' FROM ');
+
+        if ($fromPos === false) {
+            return $sql;
+        }
+
+        return substr($sql, 0, $fromPos)
+            . ', ' . $expressions
+            . substr($sql, $fromPos);
     }
 
     /**
@@ -105,23 +130,5 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         $metadata = $component['metadata'] ?? null;
 
         return $metadata?->getName();
-    }
-
-    /**
-     * Injects additional SELECT expressions before the FROM clause.
-     * Works by finding the first occurrence of " FROM " and inserting before it.
-     */
-    private function injectBeforeFrom(string $sql, string $expressions): string
-    {
-        // Doctrine generates normalized SQL with uppercase FROM
-        $fromPos = stripos($sql, ' FROM ');
-
-        if ($fromPos === false) {
-            return $sql;
-        }
-
-        return substr($sql, 0, $fromPos)
-            . ', ' . $expressions
-            . substr($sql, $fromPos);
     }
 }

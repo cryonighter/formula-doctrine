@@ -5,7 +5,7 @@ services:
 
     cryonighter.formula_doctrine.registry:
         class: Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry
-        public: true  # должен быть public: доступен через getHint() в Walker
+        public: true  # Must be public: accessible via getHint() in Walker
         arguments:
             - '@cryonighter.formula_doctrine.metadata_factory'
 
