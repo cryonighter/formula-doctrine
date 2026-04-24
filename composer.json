@@ -1,0 +1,33 @@
+{
+    "name": "cryonighter/formula-doctrine",
+    "type": "symfony-bundle",
+    "description": "Formula computed fields for Doctrine ORM entities",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "doctrine/orm": "^3.0",
+        "doctrine/dbal": "^4.0",
+        "symfony/dependency-injection": "^6.4 || ^7.0",
+        "symfony/http-kernel": "^6.4 || ^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "symfony/framework-bundle": "^6.4 || ^7.0",
+        "symfony/test-pack": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Cryonighter\\DoctrineFormula\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Cryonighter\\DoctrineFormula\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false
+        }
+    }
+}
