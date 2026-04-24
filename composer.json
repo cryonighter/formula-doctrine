@@ -1,8 +1,9 @@
 {
     "name": "cryonighter/formula-doctrine",
     "type": "symfony-bundle",
-    "description": "Formula computed fields for Doctrine ORM entities",
+    "description": "Hibernate-style #[Formula] computed fields for Doctrine ORM entities",
     "license": "MIT",
+    "keywords": ["doctrine", "orm", "formula", "computed", "symfony"],
     "require": {
         "php": ">=8.2",
         "doctrine/orm": "^3.0",
@@ -13,16 +14,16 @@
     "require-dev": {
         "phpunit/phpunit": "^11.0",
         "symfony/framework-bundle": "^6.4 || ^7.0",
-        "symfony/test-pack": "^1.0"
+        "doctrine/doctrine-bundle": "^2.11"
     },
     "autoload": {
         "psr-4": {
-            "Cryonighter\\DoctrineFormula\\": "src/"
+            "Cryonighter\\FormulaDoctrine\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Cryonighter\\DoctrineFormula\\Tests\\": "tests/"
+            "Cryonighter\\FormulaDoctrine\\Tests\\": "tests/"
         }
     },
     "extra": {

@@ -1,0 +1,32 @@
+services:
+    cryonighter.formula_doctrine.metadata_factory:
+        class: Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory
+        public: false
+
+    cryonighter.formula_doctrine.registry:
+        class: Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry
+        public: true  # должен быть public: доступен через getHint() в Walker
+        arguments:
+            - '@cryonighter.formula_doctrine.metadata_factory'
+
+    cryonighter.formula_doctrine.configurator:
+        class: Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator
+        public: false
+        arguments:
+            - '@cryonighter.formula_doctrine.registry'
+
+    cryonighter.formula_doctrine.listener.load_class_metadata:
+        class: Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener
+        public: false
+        arguments:
+            - '@cryonighter.formula_doctrine.registry'
+        tags:
+            - { name: doctrine.event_listener, event: loadClassMetadata, priority: 10 }
+
+    cryonighter.formula_doctrine.listener.on_flush:
+        class: Cryonighter\FormulaDoctrine\EventListener\OnFlushListener
+        public: false
+        arguments:
+            - '@cryonighter.formula_doctrine.registry'
+        tags:
+            - { name: doctrine.event_listener, event: onFlush }
