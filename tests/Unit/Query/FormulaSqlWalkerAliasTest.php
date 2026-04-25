@@ -126,14 +126,19 @@ final class FormulaSqlWalkerAliasTest extends TestCase
 
         $result = $this->walker->publicInjectBeforeFrom($originalSql, $expressions);
 
-        // Формулы должны быть между SELECT-полями и FROM, не после WHERE
-        $fromPos = strpos($result, ' FROM ');
-        $formulaPos = strpos($result, 'sessionCount');
-        $wherePos = strpos($result, 'WHERE');
+        // Formula and original columns must be present
+        self::assertStringContainsString('sessionCount', $result);
+        self::assertStringContainsString('u0_.name', $result);
 
-        self::assertNotFalse($fromPos);
-        self::assertNotFalse($formulaPos);
-        self::assertLessThan($fromPos, $formulaPos);
-        self::assertLessThan($wherePos, $formulaPos);
+        // The injected expression must be placed between original SELECT fields and "FROM users"
+        // i.e. the result must contain exactly this sequence
+        self::assertStringContainsString('u0_.name, (SELECT COUNT(*) FROM sessions', $result);
+
+        // WHERE and JOIN from the original query must still be present intact
+        self::assertStringContainsString('WHERE u0_.active = 1', $result);
+        self::assertStringContainsString('INNER JOIN roles', $result);
+
+        // The main table reference must still be present
+        self::assertStringContainsString('FROM users u0_', $result);
     }
 }

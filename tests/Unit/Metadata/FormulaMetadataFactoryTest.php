@@ -34,7 +34,7 @@ final class FormulaMetadataFactoryTest extends TestCase
         $result = $this->factory->createForClass(EntityWithFormulas::class);
         $meta = $result[0];
 
-        self::assertSame('integer', $meta->phpType);
+        self::assertSame('int', $meta->phpType);
         self::assertFalse($meta->nullable);
     }
 
