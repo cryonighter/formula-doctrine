@@ -233,19 +233,21 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Testing
 
-Все тесты
 ``` bash
-$ php vendor/bin/phpunit tests
-```
+# All tests
+./vendor/bin/phpunit
 
-Только unit тесты
-``` bash
-$ php vendor/bin/phpunit --testsuite Unit
-```
+# Only unit
+./vendor/bin/phpunit --testsuite Unit
 
-Только  integration тесты
-``` bash
-$ php vendor/bin/phpunit --testsuite Integration
+# Only integration
+./vendor/bin/phpunit --testsuite Integration
+
+# Specific file
+./vendor/bin/phpunit tests/Unit/Query/FormulaSqlWalkerAliasTest.php
+
+# With coating (requires Xdebug or PCOV)
+./vendor/bin/phpunit --coverage-text
 ```
 
 ## Contributing
@@ -268,14 +270,3 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 [PSR-4]: http://www.php-fig.org/psr/psr-4/
 
 [link-author]: https://github.com/cryonighter
-
-
-
-```
----
-
-Это полный `README.md`. Пара замечаний по содержанию:
-
-- **Секция "How it works"** намеренно краткая — для пользователей пакета, не для контрибьюторов. Детальная архитектура уместна в отдельном `ARCHITECTURE.md` при необходимости.
-
-```
