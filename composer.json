@@ -26,6 +26,11 @@
             "Cryonighter\\FormulaDoctrine\\Tests\\": "tests/"
         }
     },
+    "config": {
+        "platform": {
+            "php": "8.2"
+        }
+    },
     "extra": {
         "symfony": {
             "allow-contrib": false

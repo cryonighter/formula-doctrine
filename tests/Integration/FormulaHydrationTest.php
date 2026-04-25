@@ -7,8 +7,6 @@ use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
-    // --- Базовые сценарии ---
-
     public function testFormulaFieldDefaultsToZeroWhenNoOrders(): void
     {
         $product = $this->makeProduct('Empty Product');

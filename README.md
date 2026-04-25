@@ -1,4 +1,3 @@
-```markdown
 # cryonighter/formula-doctrine
 
 Hibernate-style `#[Formula]` computed fields for Doctrine ORM 3 entities.
@@ -10,8 +9,6 @@ subqueries, aggregations and joins — without N+1 queries.
 #[Formula('(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)')]
 public int $orderCount = 0;
 ```
-```
-
 
 ## Requirements
 
@@ -20,12 +17,13 @@ public int $orderCount = 0;
 - doctrine/dbal ^4.0
 - symfony/http-kernel ^6.4 || ^7.0
 
-## Installation
+## Install
+
+Via Composer
 
 ```shell script
 composer require cryonighter/formula-doctrine
 ```
-
 
 Register the bundle in `config/bundles.php`:
 
@@ -35,7 +33,6 @@ return [
     Cryonighter\FormulaDoctrine\FormulaDoctrineBundle::class => ['all' => true],
 ];
 ```
-
 
 That's it. No additional configuration is required.
 
@@ -221,37 +218,64 @@ Entity with populated formula fields
 
 ## Limitations
 
-| Limitation | Notes |
-|---|---|
-| DQL only | Formula fields are populated only when querying via DQL or `QueryBuilder`. Native SQL queries (`$em->getConnection()->executeQuery(...)`) bypass the walker entirely. |
-| Root entity only | Formulas are injected for the root entity of the DQL `FROM` clause. Joined entities with their own formulas require a separate query. |
-| Read-only | Formula fields must not have `#[ORM\Column]`. Attempting to write to them will have no effect on the database. |
-| Scalar types only | Supported PHP types: `int`, `float`, `string`, `bool` and their nullable variants. |
-| SQLite compatibility | `{this}` resolution depends on Doctrine alias generation, which is consistent across all supported DBAL drivers. |
+| Limitation           | Notes                                                                                                                                                                 |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| DQL only             | Formula fields are populated only when querying via DQL or `QueryBuilder`. Native SQL queries (`$em->getConnection()->executeQuery(...)`) bypass the walker entirely. |
+| Root entity only     | Formulas are injected for the root entity of the DQL `FROM` clause. Joined entities with their own formulas require a separate query.                                 |
+| Read-only            | Formula fields must not have `#[ORM\Column]`. Attempting to write to them will have no effect on the database.                                                        |
+| Scalar types only    | Supported PHP types: `int`, `float`, `string`, `bool` and their nullable variants.                                                                                    |
+| SQLite compatibility | `{this}` resolution depends on Doctrine alias generation, which is consistent across all supported DBAL drivers.                                                      |
+
+
+## Change log
+
+Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+
+## Testing
+
+Все тесты
+``` bash
+$ php vendor/bin/phpunit tests
+```
+
+Только unit тесты
+``` bash
+$ php vendor/bin/phpunit --testsuite Unit
+```
+
+Только  integration тесты
+``` bash
+$ php vendor/bin/phpunit --testsuite Integration
+```
 
 ## Contributing
 
-```shell script
-git clone https://github.com/cryonighter/formula-doctrine
-cd formula-doctrine
-composer install
-composer test          # runs PHPUnit
-composer analyse       # runs PHPStan (level 8)
-composer cs-check      # runs PHP CS Fixer (dry-run)
-```
+Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) for details.
 
+## Security
+
+If you discover any security related issues, please email `cryonighter@yandex.ru` instead of using the issue tracker.
+
+## Credits
+
+- [Andrey Reshetchenko][link-author]
 
 ## License
 
-MIT
+The MIT License (MIT). Please see [License File](LICENSE) for more information.
+
+[PSR-2]: http://www.php-fig.org/psr/psr-2/
+[PSR-4]: http://www.php-fig.org/psr/psr-4/
+
+[link-author]: https://github.com/cryonighter
+
+
+
 ```
 ---
 
 Это полный `README.md`. Пара замечаний по содержанию:
 
 - **Секция "How it works"** намеренно краткая — для пользователей пакета, не для контрибьюторов. Детальная архитектура уместна в отдельном `ARCHITECTURE.md` при необходимости.
-- **Секция "Limitations"** — важная часть любого README расширения. Пользователи должны знать границы инструмента до того, как столкнутся с ними в production.
-- Команды `composer test` / `composer analyse` / `composer cs-check` подразумевают соответствующие записи в секции `scripts` файла `composer.json` — стоит их добавить.
 
-Добавить `scripts` в `composer.json`?
 ```
