@@ -3,7 +3,11 @@
 namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\SelectStatement;
+use Doctrine\ORM\Query\AST\UpdateStatement;
+use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
+use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
 
@@ -27,6 +31,20 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      * from the Walker to the Hydrator via query hints.
      */
     public const HINT_FORMULA_MAP = 'formula_doctrine.formula_map';
+
+    /**
+     * Required by OutputWalker interface.
+     *
+     * This is the actual entry point called by Doctrine instead of walkSelectStatement.
+     * We generate the SQL here (which triggers our injection logic) and wrap it
+     * in a SingleSelectSqlFinalizer.
+     */
+    public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
+    {
+        assert($ast instanceof SelectStatement);
+
+        return new SingleSelectSqlFinalizer($this->walkSelectStatement($ast));
+    }
 
     public function walkSelectStatement(SelectStatement $ast): string
     {
