@@ -9,10 +9,6 @@ use Symfony\Component\DependencyInjection\Reference;
 /**
  * Attaches FormulaDoctrineConfigurator to every "doctrine.orm.*_configuration"
  * service definition found in the container.
- *
- * This is the only place where we touch Doctrine's DI definitions.
- * The actual Doctrine\ORM\Configuration mutation happens at runtime
- * inside FormulaDoctrineConfigurator::configure().
  */
 final class FormulaDoctrineCompilerPass implements CompilerPassInterface
 {
@@ -27,13 +23,6 @@ final class FormulaDoctrineCompilerPass implements CompilerPassInterface
         $configuratorRef = new Reference(self::CONFIGURATOR_SERVICE);
 
         foreach ($this->findOrmConfigurationServiceIds($container) as $serviceId) {
-            $container
-                ->getDefinition($serviceId)
-                ->addMethodCall('configure', []) // placeholder — see below
-            ;
-
-            // Symfony service configurator syntax:
-            // after the service is instantiated, call $configurator->configure($service)
             $container
                 ->getDefinition($serviceId)
                 ->setConfigurator([$configuratorRef, 'configure'])

@@ -8,13 +8,9 @@ use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
 
 /**
- * Custom Output Walker that injects formula subqueries into the SELECT clause.
- *
- * Activated automatically via LoadClassMetadataListener when the root entity
- * of a query has at least one #[Formula] field.
- *
- * Usage (manual):
- *   $query->setHint(Query::HINT_CUSTOM_OUTPUT_WALKER, FormulaSqlWalker::class);
+ * Custom Output Walker that injects formula subqueries into the SELECT clause
+ * and registers them as scalar results in the ResultSetMapping so that
+ * FormulaObjectHydrator can reliably read them from the result row.
  */
 final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 {
@@ -25,6 +21,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      * Hint key: FormulaSqlWalker::HINT_REGISTRY
      */
     public const HINT_REGISTRY = 'formula_doctrine.registry';
+
+    /**
+     * Key used to pass resolved formula metadata (alias → FormulaMetadata)
+     * from the Walker to the Hydrator via query hints.
+     */
+    public const HINT_FORMULA_MAP = 'formula_doctrine.formula_map';
 
     public function walkSelectStatement(SelectStatement $ast): string
     {
@@ -55,18 +57,28 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         );
 
         $formulaFragments = [];
+        $rsm = $this->getQuery()->getResultSetMapping();
+
+        // formulaMap: columnAlias → FormulaMetadata, passed to Hydrator via hint
+        $formulaMap = [];
 
         foreach ($registry->getForClass($entityClass) as $meta) {
             $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
             $formulaFragments[] = sprintf('%s AS %s', $resolvedSql, $meta->alias);
+
+            // Register as scalar so Doctrine maps it in the result row
+            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->phpType);
+
+            $formulaMap[$meta->alias] = $meta;
         }
 
         if ($formulaFragments === []) {
             return $sql;
         }
 
-        // Inject formula expressions right after the SELECT ... part,
-        // before the FROM clause.
+        // Pass the map to the Hydrator
+        $this->getQuery()->setHint(self::HINT_FORMULA_MAP, $formulaMap);
+
         return $this->injectBeforeFrom($sql, implode(', ', $formulaFragments));
     }
 

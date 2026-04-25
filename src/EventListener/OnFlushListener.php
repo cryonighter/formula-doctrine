@@ -3,14 +3,15 @@
 namespace Cryonighter\FormulaDoctrine\EventListener;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\UnitOfWork;
 
 /**
  * Removes #[Formula] fields from the UnitOfWork changeset before flush.
  *
- * Without this listener, Doctrine would attempt to persist formula field
- * values back to the database, causing SQL errors (no such column).
+ * Without this, Doctrine would attempt to write formula values to the database,
+ * causing SQL errors (no such column).
  */
 final class OnFlushListener
 {
@@ -21,19 +22,24 @@ final class OnFlushListener
     public function onFlush(OnFlushEventArgs $args): void
     {
         $em = $args->getObjectManager();
+        assert($em instanceof EntityManagerInterface);
+
         $uow = $em->getUnitOfWork();
 
         foreach ($uow->getScheduledEntityUpdates() as $entity) {
-            $this->stripFormulaFields($entity, $uow);
+            $this->stripFormulaFields($entity, $uow, $em);
         }
 
         foreach ($uow->getScheduledEntityInsertions() as $entity) {
-            $this->stripFormulaFields($entity, $uow);
+            $this->stripFormulaFields($entity, $uow, $em);
         }
     }
 
-    private function stripFormulaFields(object $entity, UnitOfWork $uow): void
-    {
+    private function stripFormulaFields(
+        object $entity,
+        UnitOfWork $uow,
+        EntityManagerInterface $em,
+    ): void {
         $entityClass = $entity::class;
 
         if (!$this->registry->hasFormulas($entityClass)) {
@@ -46,26 +52,38 @@ final class OnFlushListener
             return;
         }
 
-        $hasChanges = false;
+        $formulaPropertyNames = array_map(
+            static fn($meta) => $meta->propertyName,
+            $this->registry->getForClass($entityClass),
+        );
 
-        foreach ($this->registry->getForClass($entityClass) as $meta) {
-            if (array_key_exists($meta->propertyName, $changeSet)) {
-                unset($changeSet[$meta->propertyName]);
-                $hasChanges = true;
+        $hasFormulaChanges = false;
+
+        foreach ($formulaPropertyNames as $propertyName) {
+            if (array_key_exists($propertyName, $changeSet)) {
+                unset($changeSet[$propertyName]);
+                $hasFormulaChanges = true;
             }
         }
 
-        if ($hasChanges) {
-            // Re-register the stripped changeset back into UnitOfWork
+        if (!$hasFormulaChanges) {
+            return;
+        }
+
+        // Clear the current changeset for this entity
+        $uow->clearEntityChangeSet(spl_object_id($entity));
+
+        if ($changeSet === []) {
+            // No real changes left — remove from scheduled updates
+            $uow->scheduleForUpdate($entity);
+            // Immediately clear the newly scheduled "empty" update
             $uow->clearEntityChangeSet(spl_object_id($entity));
 
-            if ($changeSet !== []) {
-                // Recompute with remaining real changes
-                $uow->recomputeSingleEntityChangeSet(
-                    $em->getClassMetadata($entityClass),
-                    $entity,
-                );
-            }
+            return;
         }
+
+        // Restore the remaining non-formula changes
+        $classMetadata = $em->getClassMetadata($entityClass);
+        $uow->recomputeSingleEntityChangeSet($classMetadata, $entity);
     }
 }

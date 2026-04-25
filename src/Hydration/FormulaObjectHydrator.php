@@ -3,74 +3,73 @@
 namespace Cryonighter\FormulaDoctrine\Hydration;
 
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\Internal\Hydration\ObjectHydrator;
 use ReflectionProperty;
 
 /**
- * Extends the default ObjectHydrator to populate #[Formula] fields
- * from scalar columns injected into the SELECT clause by FormulaSqlWalker.
+ * Extends ObjectHydrator to populate #[Formula] fields after standard hydration.
  *
- * Must be registered in Doctrine configuration:
- *   doctrine.orm.hydrators.formula_object: FormulaObjectHydrator::class
- *
- * And used explicitly or set as default via an event listener.
+ * Strategy:
+ *   1. FormulaSqlWalker registers formula columns via ResultSetMapping::addScalarResult.
+ *   2. Doctrine's standard hydration sees them as scalars and returns a "mixed" result:
+ *      [ [0 => Entity, 'alias' => value], ... ]
+ *   3. We intercept hydrateAllData(), extract entities and their formula scalars,
+ *      write formula values via Reflection, and return a clean array of entities.
  */
 final class FormulaObjectHydrator extends ObjectHydrator
 {
     public const NAME = 'formula_object';
 
     /**
-     * @var array<class-string, list<FormulaMetadata>>
-     */
-    private array $formulaMetaCache = [];
-
-    /**
      * @var array<class-string, array<string, ReflectionProperty>>
      */
     private array $reflectionCache = [];
 
-    protected function hydrateRowData(array $row, array &$result): void
+    public function hydrateAllData(): array
     {
-        // Let the parent hydrate the entity object first
-        parent::hydrateRowData($row, $result);
+        // Parent returns mixed result: [[0 => Entity, 'formulaAlias' => value], ...]
+        // when both entity columns and scalar columns are in SELECT.
+        $rawResult = parent::hydrateAllData();
 
-        $registry = $this->_query->getHint(FormulaSqlWalker::HINT_REGISTRY);
+        /** @var array<string, FormulaMetadata> $formulaMap */
+        $formulaMap = $this->_query->getHint(FormulaSqlWalker::HINT_FORMULA_MAP);
 
-        if (!$registry instanceof FormulaRegistry) {
-            return;
+        if (!is_array($formulaMap) || $formulaMap === []) {
+            return $rawResult;
         }
 
-        // The last element added to $result is the freshly hydrated entity
-        $entity = $this->resolveLastEntity($result);
+        $result = [];
 
-        if ($entity === null) {
-            return;
-        }
-
-        $entityClass = $entity::class;
-        $formulas = $this->getCachedFormulas($registry, $entityClass);
-
-        if ($formulas === []) {
-            return;
-        }
-
-        foreach ($formulas as $meta) {
-            // Formula aliases come back as plain lowercase keys in $row
-            $columnKey = strtolower($meta->alias);
-
-            if (!array_key_exists($columnKey, $row)) {
+        foreach ($rawResult as $row) {
+            // Mixed result row: numeric key 0 → entity object, string keys → scalars
+            if (!is_array($row)) {
+                // Pure result (no scalars registered) — should not happen, but be safe
+                $result[] = $row;
                 continue;
             }
 
-            $rawValue = $row[$columnKey];
-            $value = $this->castValue($rawValue, $meta);
+            $entity = $row[0] ?? null;
 
-            $this->setPropertyValue($entity, $meta, $value);
+            if (!is_object($entity)) {
+                $result[] = $row;
+                continue;
+            }
+
+            foreach ($formulaMap as $alias => $meta) {
+                if (!array_key_exists($alias, $row)) {
+                    continue;
+                }
+
+                $value = $this->castValue($row[$alias], $meta);
+                $this->setPropertyValue($entity, $meta, $value);
+            }
+
+            $result[] = $entity;
         }
-    }
 
+        return $result;
+    }
     /**
      * Casts a raw DB value to the target PHP type defined in FormulaMetadata.
      */
@@ -97,19 +96,6 @@ final class FormulaObjectHydrator extends ObjectHydrator
         $prop->setValue($entity, $value);
     }
 
-    /**
-     * @param class-string $entityClass
-     * @return list<FormulaMetadata>
-     */
-    private function getCachedFormulas(FormulaRegistry $registry, string $entityClass): array
-    {
-        if (!array_key_exists($entityClass, $this->formulaMetaCache)) {
-            $this->formulaMetaCache[$entityClass] = $registry->getForClass($entityClass);
-        }
-
-        return $this->formulaMetaCache[$entityClass];
-    }
-
     private function getCachedReflectionProperty(string $entityClass, string $propertyName): ReflectionProperty
     {
         if (!isset($this->reflectionCache[$entityClass][$propertyName])) {
@@ -119,20 +105,5 @@ final class FormulaObjectHydrator extends ObjectHydrator
         }
 
         return $this->reflectionCache[$entityClass][$propertyName];
-    }
-
-    /**
-     * Extracts the last entity object hydrated into the result array.
-     * ObjectHydrator stores results as indexed arrays; the last entry is current.
-     */
-    private function resolveLastEntity(array $result): ?object
-    {
-        if ($result === []) {
-            return null;
-        }
-
-        $last = end($result);
-
-        return is_object($last) ? $last : null;
     }
 }
