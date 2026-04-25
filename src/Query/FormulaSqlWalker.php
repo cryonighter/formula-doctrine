@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
+use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\SelectStatement;
@@ -9,7 +10,9 @@ use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
+use Doctrine\ORM\Query\ResultSetMapping;
 use Doctrine\ORM\Query\SqlWalker;
+use ReflectionMethod;
 
 /**
  * Custom Output Walker that injects formula subqueries into the SELECT clause
@@ -33,15 +36,22 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     public const HINT_FORMULA_MAP = 'formula_doctrine.formula_map';
 
     /**
-     * Required by OutputWalker interface.
+     * Resolved formula metadata for the current query.
+     * Populated in getFinalizer(), consumed in walkSelectStatement().
      *
-     * This is the actual entry point called by Doctrine instead of walkSelectStatement.
-     * We generate the SQL here (which triggers our injection logic) and wrap it
-     * in a SingleSelectSqlFinalizer.
+     * @var list<FormulaMetadata>
      */
+    private array $activeFormulas = [];
+
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
         assert($ast instanceof SelectStatement);
+
+        $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
+
+        if ($registry instanceof FormulaRegistry) {
+            $this->prepareFormulas($ast, $registry);
+        }
 
         return new SingleSelectSqlFinalizer($this->walkSelectStatement($ast));
     }
@@ -50,10 +60,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     {
         $sql = parent::walkSelectStatement($ast);
 
-        $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
-
-        // Registry hint not set — nothing to do, return original SQL
-        if (!$registry instanceof FormulaRegistry) {
+        if ($this->activeFormulas === []) {
             return $sql;
         }
 
@@ -63,41 +70,66 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             return $sql;
         }
 
-        $entityClass = $this->getEntityClassForAlias($rootAlias);
-
-        if ($entityClass === null || !$registry->hasFormulas($entityClass)) {
-            return $sql;
-        }
-
         $sqlTableAlias = $this->getSQLTableAlias(
             $this->getQueryComponent($rootAlias)['metadata']->getTableName(),
             $rootAlias,
         );
 
         $formulaFragments = [];
-        $rsm = $this->getQuery()->getResultSetMapping();
-
-        // formulaMap: columnAlias → FormulaMetadata, passed to Hydrator via hint
         $formulaMap = [];
 
-        foreach ($registry->getForClass($entityClass) as $meta) {
+        foreach ($this->activeFormulas as $meta) {
             $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
             $formulaFragments[] = sprintf('%s AS %s', $resolvedSql, $meta->alias);
-
-            // Register as scalar so Doctrine maps it in the result row
-            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->phpType);
-
             $formulaMap[$meta->alias] = $meta;
         }
 
-        if ($formulaFragments === []) {
-            return $sql;
-        }
-
-        // Pass the map to the Hydrator
         $this->getQuery()->setHint(self::HINT_FORMULA_MAP, $formulaMap);
 
         return $this->injectBeforeFrom($sql, implode(', ', $formulaFragments));
+    }
+
+    /**
+     * Resolves active formulas for the root entity and registers them
+     * as scalar results in the RSM via Reflection (RSM is protected on AbstractQuery).
+     */
+    private function prepareFormulas(SelectStatement $ast, FormulaRegistry $registry): void
+    {
+        $rootAlias = $this->resolveRootDqlAlias($ast);
+
+        if ($rootAlias === null) {
+            return;
+        }
+
+        $entityClass = $this->getEntityClassForAlias($rootAlias);
+
+        if ($entityClass === null || !$registry->hasFormulas($entityClass)) {
+            return;
+        }
+
+        $this->activeFormulas = $registry->getForClass($entityClass);
+
+        if ($this->activeFormulas === []) {
+            return;
+        }
+
+        // getResultSetMapping() is protected on AbstractQuery — use Reflection
+        $rsm = $this->getRsmViaReflection();
+
+        foreach ($this->activeFormulas as $meta) {
+            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->phpType);
+        }
+    }
+
+    /**
+     * Accesses the protected getResultSetMapping() on the Query object via Reflection.
+     * This is necessary because SqlWalker does not expose the RSM publicly.
+     */
+    private function getRsmViaReflection(): ResultSetMapping
+    {
+        $method = new ReflectionMethod($this->getQuery(), 'getResultSetMapping');
+
+        return $method->invoke($this->getQuery());
     }
 
     /**
