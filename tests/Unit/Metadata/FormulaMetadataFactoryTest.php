@@ -35,6 +35,7 @@ final class FormulaMetadataFactoryTest extends TestCase
         $meta = $result[0];
 
         self::assertSame('int', $meta->phpType);
+        self::assertSame('integer', $meta->dbalType);
         self::assertFalse($meta->nullable);
     }
 

@@ -18,11 +18,16 @@ final readonly class FormulaMetadata
         public string $sql,
 
         /**
-         * PHP type name for casting after hydration.
-         * Inferred from the property type hint; fallback: 'string'.
-         * Possible values: 'int', 'float', 'string', 'bool'.
+         * PHP type name for casting after hydration ('int', 'float', 'string', 'bool').
+         * Inferred from the property type hint.
          */
         public string $phpType,
+
+        /**
+         * Doctrine DBAL type name ('integer', 'float', 'string', 'boolean').
+         * Used in ResultSetMapping::addScalarResult().
+         */
+        public string $dbalType,
 
         /** Whether NULL is a valid hydrated value (inferred from type hint) */
         public bool $nullable,
