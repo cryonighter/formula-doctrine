@@ -30,18 +30,14 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     public const HINT_REGISTRY = 'formula_doctrine.registry';
 
     /**
-     * Key used to pass resolved formula metadata (alias → FormulaMetadata)
-     * from the Walker to the Hydrator via query hints.
-     */
-    public const HINT_FORMULA_MAP = 'formula_doctrine.formula_map';
-
-    /**
      * Resolved formula metadata for the current query.
      * Populated in getFinalizer(), consumed in walkSelectStatement().
      *
      * @var list<FormulaMetadata>
      */
     private array $activeFormulas = [];
+
+    private ?FormulaRegistry $registry = null;
 
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
@@ -50,6 +46,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
 
         if ($registry instanceof FormulaRegistry) {
+            $this->registry = $registry;
             $this->prepareFormulas($ast, $registry);
         }
 
@@ -84,7 +81,9 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $formulaMap[$meta->alias] = $meta;
         }
 
-        $this->getQuery()->setHint(self::HINT_FORMULA_MAP, $formulaMap);
+        // Store in registry — hydrator reads from there, not from query hints,
+        // because $_query is not yet available inside AbstractHydrator::hydrateAllData()
+        $this->registry?->setActiveFormulaMap($formulaMap);
 
         return $this->injectBeforeFrom($sql, implode(', ', $formulaFragments));
     }

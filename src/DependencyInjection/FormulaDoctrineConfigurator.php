@@ -11,10 +11,8 @@ use Doctrine\ORM\Query;
 /**
  * Service Configurator for Doctrine ORM Configuration instances.
  *
- * Called by Symfony DI after each "doctrine.orm.*_configuration" service
- * is instantiated. Injects formula-related defaults so that every DQL
- * query automatically uses FormulaSqlWalker and FormulaObjectHydrator
- * without any user-side boilerplate.
+ * Registers FormulaObjectHydrator and wires FormulaSqlWalker as the
+ * default output walker via default query hints.
  */
 final class FormulaDoctrineConfigurator
 {
@@ -41,7 +39,8 @@ final class FormulaDoctrineConfigurator
             FormulaSqlWalker::class,
         );
 
-        // Pass the registry instance directly — no DI container needed in Walker
+        // FormulaRegistry is stored here so both FormulaSqlWalker (via hint)
+        // and FormulaObjectHydrator (via $this->em->getConfiguration()) can access it
         $configuration->setDefaultQueryHint(
             FormulaSqlWalker::HINT_REGISTRY,
             $this->registry,

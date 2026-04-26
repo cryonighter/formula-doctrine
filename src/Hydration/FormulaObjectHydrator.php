@@ -3,6 +3,7 @@
 namespace Cryonighter\FormulaDoctrine\Hydration;
 
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\Internal\Hydration\ObjectHydrator;
 use ReflectionProperty;
@@ -10,12 +11,11 @@ use ReflectionProperty;
 /**
  * Extends ObjectHydrator to populate #[Formula] fields after standard hydration.
  *
- * Strategy:
- *   1. FormulaSqlWalker registers formula columns via ResultSetMapping::addScalarResult.
- *   2. Doctrine's standard hydration sees them as scalars and returns a "mixed" result:
- *      [ [0 => Entity, 'alias' => value], ... ]
- *   3. We intercept hydrateAllData(), extract entities and their formula scalars,
- *      write formula values via Reflection, and return a clean array of entities.
+ * FormulaRegistry is retrieved from the Doctrine Configuration default query hints
+ * via $this->em — a protected property guaranteed by AbstractHydrator's constructor.
+ *
+ * FormulaSqlWalker stores the active formula map in FormulaRegistry before hydration.
+ * This hydrator reads and clears it, then writes values into entity properties.
  */
 final class FormulaObjectHydrator extends ObjectHydrator
 {
@@ -32,17 +32,23 @@ final class FormulaObjectHydrator extends ObjectHydrator
         // when both entity columns and scalar columns are in SELECT.
         $rawResult = parent::hydrateAllData();
 
-        /** @var array<string, FormulaMetadata> $formulaMap */
-        $formulaMap = $this->_query->getHint(FormulaSqlWalker::HINT_FORMULA_MAP);
+        $registry = $this->getRegistry();
 
-        if (!is_array($formulaMap) || $formulaMap === []) {
+        if ($registry === null) {
+            return $rawResult;
+        }
+
+        $formulaMap = $registry->getActiveFormulaMap();
+        $registry->clearActiveFormulaMap();
+
+        if ($formulaMap === []) {
             return $rawResult;
         }
 
         $result = [];
 
         foreach ($rawResult as $row) {
-            // Mixed result row: numeric key 0 → entity object, string keys → scalars
+            // Mixed result row: [0 => Entity, 'alias' => scalarValue, ...]
             if (!is_array($row)) {
                 // Pure result (no scalars registered) — should not happen, but be safe
                 $result[] = $row;
@@ -61,8 +67,7 @@ final class FormulaObjectHydrator extends ObjectHydrator
                     continue;
                 }
 
-                $value = $this->castValue($row[$alias], $meta);
-                $this->setPropertyValue($entity, $meta, $value);
+                $this->setPropertyValue($entity, $meta, $this->castValue($row[$alias], $meta));
             }
 
             $result[] = $entity;
@@ -70,9 +75,21 @@ final class FormulaObjectHydrator extends ObjectHydrator
 
         return $result;
     }
+
     /**
-     * Casts a raw DB value to the target PHP type defined in FormulaMetadata.
+     * Retrieves FormulaRegistry from Doctrine Configuration.
+     * Uses $this->em which is a protected property of AbstractHydrator —
+     * part of its public constructor contract, safe to rely on.
      */
+    private function getRegistry(): ?FormulaRegistry
+    {
+        $registry = $this->em->getConfiguration()->getDefaultQueryHint(
+            FormulaSqlWalker::HINT_REGISTRY,
+        );
+
+        return $registry instanceof FormulaRegistry ? $registry : null;
+    }
+
     private function castValue(mixed $rawValue, FormulaMetadata $meta): mixed
     {
         if ($rawValue === null) {
@@ -92,8 +109,8 @@ final class FormulaObjectHydrator extends ObjectHydrator
      */
     private function setPropertyValue(object $entity, FormulaMetadata $meta, mixed $value): void
     {
-        $prop = $this->getCachedReflectionProperty($entity::class, $meta->propertyName);
-        $prop->setValue($entity, $value);
+        $this->getCachedReflectionProperty($entity::class, $meta->propertyName)
+            ->setValue($entity, $value);
     }
 
     private function getCachedReflectionProperty(string $entityClass, string $propertyName): ReflectionProperty
