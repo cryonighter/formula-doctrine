@@ -10,9 +10,8 @@ use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
-use Doctrine\ORM\Query\ResultSetMapping;
 use Doctrine\ORM\Query\SqlWalker;
-use ReflectionMethod;
+use ReflectionProperty;
 
 /**
  * Custom Output Walker that injects formula subqueries into the SELECT clause
@@ -91,7 +90,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     /**
      * Resolves active formulas for the root entity and registers them
-     * as scalar results in the RSM via Reflection (RSM is protected on AbstractQuery).
+     * as scalar results directly into SqlWalker's own $rsm property,
+     * which is the RSM being built by Parser at this moment.
+     *
+     * We must NOT call $this->getQuery()->getResultSetMapping() here —
+     * that method calls parse() internally, which causes infinite recursion
+     * because getFinalizer() is itself called from within Parser::parse().
      */
     private function prepareFormulas(SelectStatement $ast, FormulaRegistry $registry): void
     {
@@ -113,23 +117,17 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             return;
         }
 
-        // getResultSetMapping() is protected on AbstractQuery — use Reflection
-        $rsm = $this->getRsmViaReflection();
+        // SqlWalker holds the RSM being constructed by Parser in a protected property $rsm.
+        // We access it directly via Reflection — this is safe because getFinalizer()
+        // is called from Parser::parse() at exactly the moment when $rsm is being built.
+        $rsmProperty = new ReflectionProperty(SqlWalker::class, 'rsm');
+
+        /** @var \Doctrine\ORM\Query\ResultSetMapping $rsm */
+        $rsm = $rsmProperty->getValue($this);
 
         foreach ($this->activeFormulas as $meta) {
-            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->phpType);
+            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->dbalType);
         }
-    }
-
-    /**
-     * Accesses the protected getResultSetMapping() on the Query object via Reflection.
-     * This is necessary because SqlWalker does not expose the RSM publicly.
-     */
-    private function getRsmViaReflection(): ResultSetMapping
-    {
-        $method = new ReflectionMethod($this->getQuery(), 'getResultSetMapping');
-
-        return $method->invoke($this->getQuery());
     }
 
     /**
