@@ -23,7 +23,7 @@ final class FormulaHydrationTest extends OrmTestCase
     {
         $product = $this->makeProduct('Popular Product');
         $this->persist($product);
-        $this->persistOrderItems($product, [10.00, 20.00, 30.00]);
+        $this->persistOrderItems($product->id, [10.00, 20.00, 30.00]);
 
         $result = $this->findProduct($product->id);
 
@@ -35,7 +35,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $product = $this->makeProduct('Revenue Product');
         $this->persist($product);
         // quantity=1 для каждого, итого: 15 + 25 = 40
-        $this->persistOrderItems($product, [15.00, 25.00]);
+        $this->persistOrderItems($product->id, [15.00, 25.00]);
 
         $result = $this->findProduct($product->id);
 
@@ -56,7 +56,7 @@ final class FormulaHydrationTest extends OrmTestCase
     {
         $product = $this->makeProduct('Max Price Product');
         $this->persist($product);
-        $this->persistOrderItems($product, [5.00, 99.99, 42.00]);
+        $this->persistOrderItems($product->id, [5.00, 99.99, 42.00]);
 
         $result = $this->findProduct($product->id);
 
@@ -73,8 +73,8 @@ final class FormulaHydrationTest extends OrmTestCase
         $p3 = $this->makeProduct('Product 3');
         $this->persist($p1, $p2, $p3);
 
-        $this->persistOrderItems($p1, [10.00]);
-        $this->persistOrderItems($p2, [20.00, 30.00]);
+        $this->persistOrderItems($p1->id, [10.00]);
+        $this->persistOrderItems($p2->id, [20.00, 30.00]);
 
         $queryCount = 0;
         $logger = new class ($queryCount) {
@@ -103,7 +103,7 @@ final class FormulaHydrationTest extends OrmTestCase
     {
         $product = $this->makeProduct('Persist Test');
         $this->persist($product);
-        $this->persistOrderItems($product, [50.00]);
+        $this->persistOrderItems($product->id, [50.00]);
 
         // Загружаем с формулами
         $loaded = $this->findProduct($product->id);
@@ -152,11 +152,11 @@ final class FormulaHydrationTest extends OrmTestCase
         return $product;
     }
 
-    private function persistOrderItems(Product $product, array $prices): void
+    private function persistOrderItems(int $productId, array $prices): void
     {
         foreach ($prices as $price) {
             $item = new OrderItem();
-            $item->product = $product;
+            $item->productId = $productId;
             $item->price = (string) $price;
             $item->quantity = 1;
             $this->em->persist($item);
