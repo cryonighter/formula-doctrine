@@ -43,7 +43,11 @@ abstract class OrmTestCase extends TestCase
 
         // --- Подключение к SQLite in-memory ---
         $connection = DriverManager::getConnection(
-            ['driver' => 'pdo_sqlite', 'memory' => true],
+            [
+                'driver' => 'pdo_sqlite',
+                'memory' => true,
+                //'path' => __DIR__ . '/test_db.sqlite' // For debugging
+            ],
             $config,
         );
 
