@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
+use Cryonighter\FormulaDoctrine\Hydration\FormulaObjectHydrator;
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Query\AST\DeleteStatement;
@@ -89,13 +90,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
-     * Resolves active formulas for the root entity and registers them
-     * as scalar results directly into SqlWalker's own $rsm property,
-     * which is the RSM being built by Parser at this moment.
+     * Resolves active formulas for the root entity, registers them as scalar
+     * results in the RSM, and switches the hydration mode to FormulaObjectHydrator.
      *
-     * We must NOT call $this->getQuery()->getResultSetMapping() here —
-     * that method calls parse() internally, which causes infinite recursion
-     * because getFinalizer() is itself called from within Parser::parse().
+     * We access SqlWalker::$rsm directly via Reflection because calling
+     * $this->getQuery()->getResultSetMapping() from within getFinalizer()
+     * would trigger Parser::parse() recursively and cause infinite recursion.
      */
     private function prepareFormulas(SelectStatement $ast, FormulaRegistry $registry): void
     {
@@ -128,6 +128,11 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         foreach ($this->activeFormulas as $meta) {
             $rsm->addScalarResult($meta->alias, $meta->alias, $meta->dbalType);
         }
+
+        // Switch to our custom hydrator so it can unwrap the mixed result
+        // produced by the combination of entity + scalar columns in the RSM.
+        // This overrides the default HYDRATE_OBJECT mode only when formulas are present.
+        $this->getQuery()->setHydrationMode(FormulaObjectHydrator::NAME);
     }
 
     /**
