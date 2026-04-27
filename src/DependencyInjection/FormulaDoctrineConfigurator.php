@@ -2,7 +2,6 @@
 
 namespace Cryonighter\FormulaDoctrine\DependencyInjection;
 
-use Cryonighter\FormulaDoctrine\Hydration\FormulaObjectHydrator;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\Configuration;
@@ -11,8 +10,7 @@ use Doctrine\ORM\Query;
 /**
  * Service Configurator for Doctrine ORM Configuration instances.
  *
- * Registers FormulaObjectHydrator and wires FormulaSqlWalker as the
- * default output walker via default query hints.
+ * Wires FormulaSqlWalker as the default output walker via default query hints.
  */
 final readonly class FormulaDoctrineConfigurator
 {
@@ -27,12 +25,6 @@ final readonly class FormulaDoctrineConfigurator
      */
     public function configure(Configuration $configuration): void
     {
-        // Register the custom hydrator under a stable name
-        $configuration->addCustomHydrationMode(
-            FormulaObjectHydrator::NAME,
-            FormulaObjectHydrator::class,
-        );
-
         // Apply FormulaSqlWalker to every DQL query by default
         $configuration->setDefaultQueryHint(
             Query::HINT_CUSTOM_OUTPUT_WALKER,

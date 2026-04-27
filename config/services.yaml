@@ -31,20 +31,7 @@ services:
         tags:
             - { name: doctrine.event_listener, event: postLoad }
 
-    cryonighter.formula_doctrine.listener.on_flush:
-        class: Cryonighter\FormulaDoctrine\EventListener\OnFlushListener
-        public: false
-        arguments:
-            - '@cryonighter.formula_doctrine.registry'
-        tags:
-            - { name: doctrine.event_listener, event: onFlush }
-
     Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker:
-        autowire: false
-        autoconfigure: false
-        public: false
-
-    Cryonighter\FormulaDoctrine\Hydration\FormulaObjectHydrator:
         autowire: false
         autoconfigure: false
         public: false

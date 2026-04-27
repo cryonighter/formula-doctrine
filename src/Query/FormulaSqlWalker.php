@@ -2,7 +2,6 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
-use Cryonighter\FormulaDoctrine\Hydration\FormulaObjectHydrator;
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Query\AST\DeleteStatement;
@@ -12,12 +11,13 @@ use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
-use ReflectionProperty;
 
 /**
- * Custom Output Walker that injects formula subqueries into the SELECT clause
- * and registers them as scalar results in the ResultSetMapping so that
- * FormulaObjectHydrator can reliably read them from the result row.
+ * Custom Output Walker that injects formula subqueries into the SELECT clause.
+ *
+ * Formula fields are registered in ClassMetadata by LoadClassMetadataListener,
+ * so ObjectHydrator can hydrate them directly via standard fieldMappings —
+ * no custom hydrator or setHydrationMode() needed.
  */
 final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 {
@@ -37,8 +37,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     private array $activeFormulas = [];
 
-    private ?FormulaRegistry $registry = null;
-
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
         assert($ast instanceof SelectStatement);
@@ -46,7 +44,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
 
         if ($registry instanceof FormulaRegistry) {
-            $this->registry = $registry;
             $this->prepareFormulas($ast, $registry);
         }
 
@@ -72,20 +69,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $rootAlias,
         );
 
-        $formulaFragments = [];
-        $formulaMap = [];
-
         foreach ($this->activeFormulas as $meta) {
             $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
-            $formulaFragments[] = sprintf('%s AS %s', $resolvedSql, $meta->alias);
-            $formulaMap[$meta->alias] = $meta;
+            $sql = str_replace("$sqlTableAlias.$meta->alias", $resolvedSql, $sql);
         }
 
-        // Store in registry — hydrator reads from there, not from query hints,
-        // because $_query is not yet available inside AbstractHydrator::hydrateAllData()
-        $this->registry?->setActiveFormulaMap($formulaMap);
-
-        return $this->injectBeforeFrom($sql, implode(', ', $formulaFragments));
+        return $sql;
     }
 
     /**
@@ -116,22 +105,10 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             return;
         }
 
-        // SqlWalker holds the RSM being constructed by Parser in a protected property $rsm.
-        // We access it directly via Reflection — this is safe because getFinalizer()
-        // is called from Parser::parse() at exactly the moment when $rsm is being built.
-        $rsmProperty = new ReflectionProperty(SqlWalker::class, 'rsm');
-
-        /** @var \Doctrine\ORM\Query\ResultSetMapping $rsm */
-        $rsm = $rsmProperty->getValue($this);
-
-        foreach ($this->activeFormulas as $meta) {
-            $rsm->addScalarResult($meta->alias, $meta->alias, $meta->dbalType);
-        }
-
-        // Switch to our custom hydrator so it can unwrap the mixed result
-        // produced by the combination of entity + scalar columns in the RSM.
-        // This overrides the default HYDRATE_OBJECT mode only when formulas are present.
-        $this->getQuery()->setHydrationMode(FormulaObjectHydrator::NAME);
+        // Formula fields are registered in ClassMetadata as mapped fields by
+        // LoadClassMetadataListener. ObjectHydrator will populate them automatically
+        // via fieldMappings — no addScalarResult, no custom hydrator needed.
+        // The RSM already knows about these fields through ClassMetadata.
     }
 
     /**
@@ -140,23 +117,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     protected function resolvePlaceholder(string $sql, string $tableAlias): string
     {
         return str_replace('{this}', $tableAlias, $sql);
-    }
-
-    /**
-     * Injects additional SELECT expressions before the FROM clause.
-     * Works by finding the first occurrence of " FROM " and inserting before it.
-     */
-    protected function injectBeforeFrom(string $sql, string $expressions): string
-    {
-        $fromPos = stripos($sql, ' FROM ');
-
-        if ($fromPos === false) {
-            return $sql;
-        }
-
-        return substr($sql, 0, $fromPos)
-            . ', ' . $expressions
-            . substr($sql, $fromPos);
     }
 
     /**
