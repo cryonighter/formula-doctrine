@@ -70,6 +70,9 @@ final class FormulaObjectHydrator extends ObjectHydrator
                 $this->setPropertyValue($entity, $meta, $this->castValue($row[$alias], $meta));
             }
 
+            // Mark as hydrated so PostLoadListener skips this entity
+            $registry->markAsHydrated($entity);
+
             $result[] = $entity;
         }
 

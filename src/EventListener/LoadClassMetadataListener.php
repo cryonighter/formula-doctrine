@@ -9,10 +9,10 @@ use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
  * Warms up FormulaRegistry by scanning entity classes as Doctrine loads their metadata.
  * This avoids cold Reflection hits during actual query execution.
  */
-final class LoadClassMetadataListener
+final readonly class LoadClassMetadataListener
 {
     public function __construct(
-        private readonly FormulaRegistry $registry,
+        private FormulaRegistry $registry,
     ) {}
 
     public function loadClassMetadata(LoadClassMetadataEventArgs $args): void

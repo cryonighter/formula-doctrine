@@ -5,7 +5,7 @@ services:
 
     cryonighter.formula_doctrine.registry:
         class: Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry
-        public: true  # Must be public: accessible via getHint() in Walker
+        public: true
         arguments:
             - '@cryonighter.formula_doctrine.metadata_factory'
 
@@ -23,6 +23,14 @@ services:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata, priority: 10 }
 
+    cryonighter.formula_doctrine.listener.post_load:
+        class: Cryonighter\FormulaDoctrine\EventListener\PostLoadListener
+        public: false
+        arguments:
+            - '@cryonighter.formula_doctrine.registry'
+        tags:
+            - { name: doctrine.event_listener, event: postLoad }
+
     cryonighter.formula_doctrine.listener.on_flush:
         class: Cryonighter\FormulaDoctrine\EventListener\OnFlushListener
         public: false
@@ -30,3 +38,13 @@ services:
             - '@cryonighter.formula_doctrine.registry'
         tags:
             - { name: doctrine.event_listener, event: onFlush }
+
+    Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker:
+        autowire: false
+        autoconfigure: false
+        public: false
+
+    Cryonighter\FormulaDoctrine\Hydration\FormulaObjectHydrator:
+        autowire: false
+        autoconfigure: false
+        public: false

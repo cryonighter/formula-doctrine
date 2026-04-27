@@ -4,6 +4,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
+use ReflectionProperty;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
@@ -129,7 +130,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $loaded = $this->findProduct($product->id);
 
         // Принудительно меняем формульное поле через Reflection
-        $prop = new \ReflectionProperty(Product::class, 'orderCount');
+        $prop = new ReflectionProperty(Product::class, 'orderCount');
         $prop->setValue($loaded, 999);
 
         // Flush не должен пытаться сохранить orderCount=999
@@ -140,6 +141,39 @@ final class FormulaHydrationTest extends OrmTestCase
 
         // После перезагрузки значение снова вычислено из БД (0, заказов нет)
         self::assertSame(0, $reloaded->orderCount);
+    }
+
+    public function testFindPopulatesFormulaFields(): void
+    {
+        $product = $this->makeProduct('Find Test');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [10.00, 20.00]);
+
+        // Deliberately bypass DQL — use find() directly
+        $found = $this->em->find(Product::class, $product->id);
+
+        self::assertInstanceOf(Product::class, $found);
+        self::assertSame(2, $found->orderCount);
+        self::assertEqualsWithDelta(30.0, $found->totalRevenue, 0.001);
+    }
+
+    public function testFindDoesNotDuplicateQueriesWhenAlreadyHydratedByWalker(): void
+    {
+        $product = $this->makeProduct('No Duplicate Test');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [5.00]);
+
+        // First load via DQL — Walker hydrates
+        $viaQuery = $this->findProduct($product->id);
+        self::assertSame(1, $viaQuery->orderCount);
+
+        // find() on same entity — should hit Identity Map, postLoad skipped
+        // because Walker already marked it as hydrated
+        $viaFind = $this->em->find(Product::class, $product->id);
+
+        // Same object instance from Identity Map
+        self::assertSame($viaQuery, $viaFind);
+        self::assertSame(1, $viaFind->orderCount);
     }
 
     // --- Вспомогательные методы ---

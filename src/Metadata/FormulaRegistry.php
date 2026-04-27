@@ -8,9 +8,11 @@ use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
  * In-memory registry of formula metadata per entity class.
  * Acts as a session-scoped cache to avoid repeated Reflection calls.
  *
- * Also serves as the communication channel between FormulaSqlWalker
- * and FormulaObjectHydrator: the walker stores the active formula map here,
- * the hydrator reads and clears it.
+ * Also serves as the communication channel between FormulaSqlWalker,
+ * FormulaObjectHydrator and PostLoadListener:
+ * - Walker stores the active formula map here before hydration
+ * - Hydrator reads it, clears it, and marks each entity as hydrated
+ * - PostLoadListener checks the flag and skips already-hydrated entities
  */
 final class FormulaRegistry
 {
@@ -28,6 +30,14 @@ final class FormulaRegistry
      * @var array<string, FormulaMetadata>
      */
     private array $activeFormulaMap = [];
+
+    /**
+     * Tracks which entity instances have already been hydrated by FormulaObjectHydrator.
+     * Key: spl_object_id($entity)
+     *
+     * @var array<int, bool>
+     */
+    private array $hydratedObjects = [];
 
     public function __construct(
         private readonly FormulaMetadataFactory $factory,
@@ -92,5 +102,31 @@ final class FormulaRegistry
     public function clearActiveFormulaMap(): void
     {
         $this->activeFormulaMap = [];
+    }
+
+    /**
+     * Marks an entity instance as already hydrated by FormulaObjectHydrator.
+     * PostLoadListener checks this to avoid duplicate SQL.
+     */
+    public function markAsHydrated(object $entity): void
+    {
+        $this->hydratedObjects[spl_object_id($entity)] = true;
+    }
+
+    /**
+     * Returns true if this entity instance was already hydrated by FormulaObjectHydrator.
+     */
+    public function isHydrated(object $entity): bool
+    {
+        return isset($this->hydratedObjects[spl_object_id($entity)]);
+    }
+
+    /**
+     * Removes the hydration mark for an entity instance.
+     * Called when the entity is detached or the EM is cleared.
+     */
+    public function unmarkAsHydrated(object $entity): void
+    {
+        unset($this->hydratedObjects[spl_object_id($entity)]);
     }
 }

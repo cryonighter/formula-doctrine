@@ -1,4 +1,4 @@
-# cryonighter/formula-doctrine
+# Formula Doctrine
 
 Hibernate-style `#[Formula]` computed fields for Doctrine ORM 3 entities.
 
@@ -195,22 +195,38 @@ public int $orderCount = 0;
 5. **`FormulaObjectHydrator`** (extends `ObjectHydrator`) reads the extra scalar
    columns from the result row and writes them to the entity properties via
    `ReflectionProperty`, bypassing visibility and `readonly` constraints.
+   Marks each hydrated entity in `FormulaRegistry` to prevent duplicate work.
 
-6. **`OnFlushListener`** strips formula fields from the Doctrine UnitOfWork
+6. **`PostLoadListener`** acts as a fallback for entity loading paths that bypass
+   DQL — `find()`, `findAll()`, `findBy()`, and lazy proxy initialisation.
+   Executes one additional SQL query per entity in these cases.
+   Skips entities already marked as hydrated by `FormulaObjectHydrator`.
+
+7. **`OnFlushListener`** strips formula fields from the Doctrine UnitOfWork
    changeset before every `flush()`, ensuring they are never written to the database.
 
 ```
-DQL query
+DQL query (createQuery / QueryBuilder / Repository methods)
     │
     ▼
-FormulaSqlWalker          — adds "(SELECT ...) AS alias" to SELECT clause
+FormulaSqlWalker          — injects "(SELECT ...) AS alias" into SELECT clause
     │
     ▼
-Single SQL query executed
+Single SQL query executed — all formula fields in one round-trip
     │
     ▼
-FormulaObjectHydrator     — sets formula property values via Reflection
+FormulaObjectHydrator     — sets formula property values via Reflection, marks entity in FormulaRegistry
     │
+    ▼
+Entity with populated formula fields
+
+OR
+
+find() / findAll() / findBy() / lazy proxy
+    │
+    ▼
+PostLoadListener          — checks hydration flag, skips if already done
+    │                       executes one extra SQL query per entity if needed
     ▼
 Entity with populated formula fields
 ```
@@ -218,13 +234,14 @@ Entity with populated formula fields
 
 ## Limitations
 
-| Limitation           | Notes                                                                                                                                                                 |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| DQL only             | Formula fields are populated only when querying via DQL or `QueryBuilder`. Native SQL queries (`$em->getConnection()->executeQuery(...)`) bypass the walker entirely. |
-| Root entity only     | Formulas are injected for the root entity of the DQL `FROM` clause. Joined entities with their own formulas require a separate query.                                 |
-| Read-only            | Formula fields must not have `#[ORM\Column]`. Attempting to write to them will have no effect on the database.                                                        |
-| Scalar types only    | Supported PHP types: `int`, `float`, `string`, `bool` and their nullable variants.                                                                                    |
-| SQLite compatibility | `{this}` resolution depends on Doctrine alias generation, which is consistent across all supported DBAL drivers.                                                      |
+| Limitation                                              | Notes                                                                                                                                                                                                                                                                                                                  |
+|---------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| One extra query for `find()` / `findAll()` / `findBy()` | These methods bypass DQL entirely. `PostLoadListener` runs a single additional SQL query per entity to populate formula fields. For bulk loading always prefer `createQuery()` or `createQueryBuilder()` — formulas are resolved in one round-trip.                                                                    |
+| Root entity only (DQL)                                  | Formulas are injected for the root entity of the DQL `FROM` clause. Entities loaded via JOIN (non-root) fall back to `PostLoadListener` — one extra query per unique joined entity.                                                                                                                                    |
+| Read-only                                               | Formula fields must not have `#[ORM\Column]`. Attempting to write to them will have no effect on the database.                                                                                                                                                                                                         |
+| Scalar types only                                       | Supported PHP types: `int`, `float`, `string`, `bool` and their nullable variants.                                                                                                                                                                                                                                     |
+| Native SQL                                              | `$em->getConnection()->executeQuery(...)` bypasses both Walker and `PostLoadListener` entirely — formula fields will hold their default PHP values.                                                                                                                                                                    |
+| Identity Map                                            | If an entity was loaded without formulas (e.g. via `find()` before `PostLoadListener` was registered) and then loaded again via DQL — Doctrine returns the cached instance from the Identity Map. `PostLoadListener` marks the entity after the first successful hydration, so subsequent loads are skipped correctly. |
 
 
 ## Change log

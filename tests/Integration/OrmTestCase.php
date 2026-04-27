@@ -3,11 +3,13 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\EventListener\PostLoadListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\TestCase;
@@ -51,7 +53,16 @@ abstract class OrmTestCase extends TestCase
             $config,
         );
 
-        return new EntityManager($connection, $config);
+        $em = new EntityManager($connection, $config);
+
+        $eventManager = $em->getEventManager();
+
+        $eventManager->addEventListener(
+            Events::postLoad,
+            new PostLoadListener($registry),
+        );
+
+        return $em;
     }
 
     private function createSchema(): void

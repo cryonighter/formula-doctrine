@@ -13,10 +13,10 @@ use Doctrine\ORM\UnitOfWork;
  * Without this, Doctrine would attempt to write formula values to the database,
  * causing SQL errors (no such column).
  */
-final class OnFlushListener
+final readonly class OnFlushListener
 {
     public function __construct(
-        private readonly FormulaRegistry $registry,
+        private FormulaRegistry $registry,
     ) {}
 
     public function onFlush(OnFlushEventArgs $args): void
