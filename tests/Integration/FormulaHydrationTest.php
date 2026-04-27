@@ -198,6 +198,21 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertSame(0, $reloaded->orderCount);
     }
 
+    public function testDqlFormulasWorkOnRepeatedQueryExecution(): void
+    {
+        $product = $this->makeProduct('RSM Cache Test');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [10.00, 20.00]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $result = $this->getProduct($product->id);
+
+            self::assertSame(2, $result->orderCount);
+
+            $this->em->clear();
+        }
+    }
+
     // --- Вспомогательные методы ---
 
     private function makeProduct(string $name): Product
