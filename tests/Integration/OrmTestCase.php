@@ -3,9 +3,11 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostLoadListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 abstract class OrmTestCase extends TestCase
 {
     protected EntityManagerInterface $em;
+    protected QueryLogger $queryLogger;
 
     protected function setUp(): void
     {
@@ -32,8 +35,7 @@ abstract class OrmTestCase extends TestCase
 
     private function createEntityManager(): EntityManagerInterface
     {
-        // --- Doctrine ORM конфигурация ---
-        $config = ORMSetup::createAttributeMetadataConfiguration(
+        $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
             paths: [__DIR__ . '/Fixture/Entity'],
             isDevMode: true,
         );
@@ -41,21 +43,30 @@ abstract class OrmTestCase extends TestCase
         // --- Подключаем FormulaDoctrineConfigurator напрямую, без Symfony ---
         $registry = new FormulaRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);
-        $configurator->configure($config);
+        $configurator->configure($ormConfig);
 
-        // --- Подключение к SQLite in-memory ---
+        $this->queryLogger = new QueryLogger();
+
+        $dbalConfig = new DbalConfiguration();
+        $dbalConfig->setMiddlewares([$this->queryLogger]);
+
         $connection = DriverManager::getConnection(
             [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
                 //'path' => __DIR__ . '/test_db.sqlite' // For debugging
             ],
-            $config,
+            $dbalConfig,
         );
 
-        $em = new EntityManager($connection, $config);
+        $em = new EntityManager($connection, $ormConfig);
 
         $eventManager = $em->getEventManager();
+
+        $eventManager->addEventListener(
+            Events::loadClassMetadata,
+            new LoadClassMetadataListener($registry),
+        );
 
         $eventManager->addEventListener(
             Events::postLoad,
@@ -70,6 +81,9 @@ abstract class OrmTestCase extends TestCase
         $schemaTool = new SchemaTool($this->em);
         $metadata = $this->em->getMetadataFactory()->getAllMetadata();
         $schemaTool->createSchema($metadata);
+
+        // Reset counter after schema creation — we don't count DDL
+        $this->queryLogger->reset();
     }
 
     /**
@@ -83,5 +97,7 @@ abstract class OrmTestCase extends TestCase
 
         $this->em->flush();
         $this->em->clear();
+
+        $this->queryLogger->reset();
     }
 }

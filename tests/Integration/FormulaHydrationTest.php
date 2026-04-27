@@ -4,16 +4,15 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
-use ReflectionProperty;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
-    public function testFormulaFieldDefaultsToZeroWhenNoOrders(): void
+    public function testFormulaFieldDefaultsWhenNoOrders(): void
     {
         $product = $this->makeProduct('Empty Product');
         $this->persist($product);
 
-        $result = $this->findProduct($product->id);
+        $result = $this->getProduct($product->id);
 
         self::assertSame(0, $result->orderCount);
         self::assertSame(0.0, $result->totalRevenue);
@@ -26,7 +25,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->persist($product);
         $this->persistOrderItems($product->id, [10.00, 20.00, 30.00]);
 
-        $result = $this->findProduct($product->id);
+        $result = $this->getProduct($product->id);
 
         self::assertSame(3, $result->orderCount);
     }
@@ -38,7 +37,7 @@ final class FormulaHydrationTest extends OrmTestCase
         // quantity=1 для каждого, итого: 15 + 25 = 40
         $this->persistOrderItems($product->id, [15.00, 25.00]);
 
-        $result = $this->findProduct($product->id);
+        $result = $this->getProduct($product->id);
 
         self::assertEqualsWithDelta(40.0, $result->totalRevenue, 0.001);
     }
@@ -48,7 +47,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $product = $this->makeProduct('Lonely Product');
         $this->persist($product);
 
-        $result = $this->findProduct($product->id);
+        $result = $this->getProduct($product->id);
 
         self::assertNull($result->maxItemPrice);
     }
@@ -59,14 +58,14 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->persist($product);
         $this->persistOrderItems($product->id, [5.00, 99.99, 42.00]);
 
-        $result = $this->findProduct($product->id);
+        $result = $this->getProduct($product->id);
 
         self::assertEqualsWithDelta(99.99, $result->maxItemPrice, 0.001);
     }
 
-    // --- Проверка отсутствия N+1 ---
+    // --- Механизм загрузки через DQL: Walker + Hydrator (без N+1) ---
 
-    public function testCollectionQueryUsesNoNPlusOneQueries(): void
+    public function testDqlUsesOneQueryWithSubqueries(): void
     {
         // Создаём 3 продукта с разным числом заказов
         $p1 = $this->makeProduct('Product 1');
@@ -77,12 +76,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->persistOrderItems($p1->id, [10.00]);
         $this->persistOrderItems($p2->id, [20.00, 30.00]);
 
-        $queryCount = 0;
-        $logger = new class ($queryCount) {
-            public int $count = 0;
-            public function startQuery(string $sql): void { $this->count++; }
-            public function stopQuery(): void {}
-        };
+        $this->queryLogger->reset();
 
         // Один SELECT должен вернуть все 3 продукта с формулами
         $products = $this->em
@@ -91,14 +85,75 @@ final class FormulaHydrationTest extends OrmTestCase
 
         self::assertCount(3, $products);
 
-        // Проверяем значения — если бы был N+1, тесты на значения провалились бы
-        // при закрытом соединении или счётчике запросов
+        // Ровно 1 запрос — все формулы в одном SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // SQL содержит подзапросы формул
+        $sql = $this->queryLogger->getQueries()[0];
+        self::assertStringContainsString('SELECT COUNT', $sql);
+        self::assertStringContainsString('SELECT COALESCE', $sql);
+
+        // Значения корректны
         self::assertSame(1, $products[0]->orderCount);
         self::assertSame(2, $products[1]->orderCount);
         self::assertSame(0, $products[2]->orderCount);
     }
 
-    // --- Проверка что формульные поля не персистируются ---
+    public function testDqlSingleEntityUsesOneQuery(): void
+    {
+        $product = $this->makeProduct('Single Product');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [50.00]);
+
+        $this->queryLogger->reset();
+
+        $result = $this->getProduct($product->id);
+
+        // Ровно 1 запрос через DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+        self::assertSame(1, $result->orderCount);
+    }
+
+    // --- Механизм загрузки через find(): PostLoadListener (fallback) ---
+
+    public function testFindUsesTwoQueriesViaPostLoad(): void
+    {
+        $product = $this->makeProduct('Find Product');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [10.00, 20.00]);
+
+        $this->em->clear();
+        $this->queryLogger->reset();
+
+        $found = $this->em->find(Product::class, $product->id);
+
+        // 2 запроса: 1 основной SELECT + 1 PostLoadListener
+        self::assertCount(2, $this->queryLogger->getQueries());
+        self::assertSame(2, $found->orderCount);
+    }
+
+    public function testFindAfterDqlUsesIdentityMapNoExtraQuery(): void
+    {
+        $product = $this->makeProduct('Identity Map Product');
+        $this->persist($product);
+        $this->persistOrderItems($product->id, [5.00]);
+
+        // Сначала загружаем через DQL — Walker отрабатывает
+        $viaQuery = $this->getProduct($product->id);
+        self::assertSame(1, $viaQuery->orderCount);
+
+        $this->queryLogger->reset();
+
+        // find() должен вернуть объект из Identity Map без лишних запросов
+        $viaFind = $this->em->find(Product::class, $product->id);
+
+        self::assertSame($viaQuery, $viaFind);
+        // 0 запросов — Identity Map, PostLoadListener видит флаг isHydrated
+        self::assertCount(0, $this->queryLogger->getQueries());
+        self::assertSame(1, $viaFind->orderCount);
+    }
+
+    // --- flush не персистирует формульные поля ---
 
     public function testFormulaFieldsAreNotPersistedOnFlush(): void
     {
@@ -107,7 +162,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->persistOrderItems($product->id, [50.00]);
 
         // Загружаем с формулами
-        $loaded = $this->findProduct($product->id);
+        $loaded = $this->getProduct($product->id);
         self::assertSame(1, $loaded->orderCount);
 
         // Модифицируем обычное поле и флашим
@@ -116,7 +171,8 @@ final class FormulaHydrationTest extends OrmTestCase
 
         // Проверяем что flush не сломался из-за формульных полей
         $this->em->clear();
-        $reloaded = $this->findProduct($product->id);
+
+        $reloaded = $this->getProduct($product->id);
 
         self::assertSame('Updated Name', $reloaded->name);
         self::assertSame(1, $reloaded->orderCount);
@@ -127,53 +183,19 @@ final class FormulaHydrationTest extends OrmTestCase
         $product = $this->makeProduct('No Update Test');
         $this->persist($product);
 
-        $loaded = $this->findProduct($product->id);
+        $loaded = $this->getProduct($product->id);
 
-        // Принудительно меняем формульное поле через Reflection
-        $prop = new ReflectionProperty(Product::class, 'orderCount');
-        $prop->setValue($loaded, 999);
+        // Меняем формульное поле
+        $loaded->orderCount = 999;
 
         // Flush не должен пытаться сохранить orderCount=999
         $this->em->flush();
         $this->em->clear();
 
-        $reloaded = $this->findProduct($product->id);
+        $reloaded = $this->getProduct($product->id);
 
         // После перезагрузки значение снова вычислено из БД (0, заказов нет)
         self::assertSame(0, $reloaded->orderCount);
-    }
-
-    public function testFindPopulatesFormulaFields(): void
-    {
-        $product = $this->makeProduct('Find Test');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [10.00, 20.00]);
-
-        // Deliberately bypass DQL — use find() directly
-        $found = $this->em->find(Product::class, $product->id);
-
-        self::assertInstanceOf(Product::class, $found);
-        self::assertSame(2, $found->orderCount);
-        self::assertEqualsWithDelta(30.0, $found->totalRevenue, 0.001);
-    }
-
-    public function testFindDoesNotDuplicateQueriesWhenAlreadyHydratedByWalker(): void
-    {
-        $product = $this->makeProduct('No Duplicate Test');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [5.00]);
-
-        // First load via DQL — Walker hydrates
-        $viaQuery = $this->findProduct($product->id);
-        self::assertSame(1, $viaQuery->orderCount);
-
-        // find() on same entity — should hit Identity Map, postLoad skipped
-        // because Walker already marked it as hydrated
-        $viaFind = $this->em->find(Product::class, $product->id);
-
-        // Same object instance from Identity Map
-        self::assertSame($viaQuery, $viaFind);
-        self::assertSame(1, $viaFind->orderCount);
     }
 
     // --- Вспомогательные методы ---
@@ -198,9 +220,11 @@ final class FormulaHydrationTest extends OrmTestCase
 
         $this->em->flush();
         $this->em->clear();
+
+        $this->queryLogger->reset();
     }
 
-    private function findProduct(int $id): Product
+    private function getProduct(int $id): Product
     {
         $product = $this->em
             ->createQuery('SELECT p FROM ' . Product::class . ' p WHERE p.id = :id')
@@ -212,4 +236,3 @@ final class FormulaHydrationTest extends OrmTestCase
         return $product;
     }
 }
-

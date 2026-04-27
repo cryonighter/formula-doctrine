@@ -42,6 +42,7 @@ final class FormulaObjectHydrator extends ObjectHydrator
         $registry->clearActiveFormulaMap();
 
         if ($formulaMap === []) {
+            // No formulas active — return parent result as-is (pure object array)
             return $rawResult;
         }
 

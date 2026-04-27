@@ -14,10 +14,10 @@ use Doctrine\ORM\Query;
  * Registers FormulaObjectHydrator and wires FormulaSqlWalker as the
  * default output walker via default query hints.
  */
-final class FormulaDoctrineConfigurator
+final readonly class FormulaDoctrineConfigurator
 {
     public function __construct(
-        private readonly FormulaRegistry $registry,
+        private FormulaRegistry $registry,
     ) {
     }
 
