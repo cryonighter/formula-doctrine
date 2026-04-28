@@ -2,8 +2,11 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Unit\Metadata;
 
-use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithCustomAlias;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithFormulas;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithoutFormulas;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithUntypedFormula;
 use PHPUnit\Framework\TestCase;
 
 final class FormulaMetadataFactoryTest extends TestCase
@@ -69,33 +72,4 @@ final class FormulaMetadataFactoryTest extends TestCase
         self::assertSame('string', $result[0]->phpType);
         self::assertTrue($result[0]->nullable);
     }
-}
-
-// --- Вспомогательные сущности для тестов ---
-
-class EntityWithoutFormulas
-{
-    public int $id;
-    public string $name;
-}
-
-class EntityWithFormulas
-{
-    #[Formula('(SELECT COUNT(*) FROM t)')]
-    public int $orderCount = 0;
-
-    #[Formula('(SELECT MAX(price) FROM t)')]
-    public ?float $maxPrice = null;
-}
-
-class EntityWithCustomAlias
-{
-    #[Formula('(SELECT 1)', alias: 'custom_alias')]
-    public int $computed = 0;
-}
-
-class EntityWithUntypedFormula
-{
-    #[Formula('(SELECT "hello")')]
-    public $untypedField;
 }

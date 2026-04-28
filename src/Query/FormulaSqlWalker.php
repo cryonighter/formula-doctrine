@@ -115,7 +115,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     /**
      * Replaces the {this} placeholder with the actual SQL table alias.
      */
-    protected function resolvePlaceholder(string $sql, string $tableAlias): string
+    private function resolvePlaceholder(string $sql, string $tableAlias): string
     {
         return str_replace('{this}', $tableAlias, $sql);
     }

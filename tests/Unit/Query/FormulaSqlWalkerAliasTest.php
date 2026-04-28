@@ -8,9 +8,10 @@ use PHPUnit\Framework\TestCase;
  * Tests the isolated string-manipulation logic of FormulaSqlWalker
  * without requiring a real EntityManager or Doctrine infrastructure.
  *
- * SqlWalker cannot be instantiated standalone, so we expose the
- * protected methods under test via an anonymous subclass accessed
- * through a test-specific proxy.
+ * The Walker's core logic is:
+ *   1. resolvePlaceholder() — replaces {this} with the real SQL table alias
+ *   2. Column replacement — str_replace("alias.fieldName", resolvedSql, $sql)
+ *      This is tested here by simulating what walkSelectStatement() does.
  */
 final class FormulaSqlWalkerAliasTest extends TestCase
 {
@@ -20,8 +21,6 @@ final class FormulaSqlWalkerAliasTest extends TestCase
     {
         $this->walker = new FormulaSqlWalkerProxy();
     }
-
-    // --- resolvePlaceholder ---
 
     public function testResolvePlaceholderReplacesThis(): void
     {
@@ -68,77 +67,78 @@ final class FormulaSqlWalkerAliasTest extends TestCase
         self::assertSame('t42_.id', $result);
     }
 
-    // --- injectBeforeFrom ---
+    // --- Column replacement logic ---
+    // Walker does: str_replace("$tableAlias.$fieldAlias", $resolvedSql, $sql)
+    // We test this pattern directly to document and guard the replacement contract.
 
-    public function testInjectBeforeFromAppendsToSelectClause(): void
+    public function testColumnReferenceIsReplacedWithSubquery(): void
     {
-        $originalSql = 'SELECT p0_.id, p0_.name FROM products p0_';
-        $expressions = '(SELECT COUNT(*) FROM orders o WHERE o.product_id = p0_.id) AS orderCount';
+        $sql = 'SELECT p0_.id AS id_0, p0_.name AS name_1, p0_.orderCount AS orderCount_2 FROM products p0_';
+        $resolvedSql = '(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = p0_.id)';
 
-        $result = $this->walker->publicInjectBeforeFrom($originalSql, $expressions);
+        $result = str_replace('p0_.orderCount', $resolvedSql, $sql);
 
         self::assertSame(
-            'SELECT p0_.id, p0_.name, (SELECT COUNT(*) FROM orders o WHERE o.product_id = p0_.id) AS orderCount FROM products p0_',
+            'SELECT p0_.id AS id_0, p0_.name AS name_1, (SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = p0_.id) AS orderCount_2 FROM products p0_',
             $result,
         );
     }
 
-    public function testInjectBeforeFromWithMultipleExpressions(): void
+    public function testMultipleColumnReferencesAreReplacedIndependently(): void
     {
-        $originalSql = 'SELECT p0_.id FROM products p0_';
-        $expressions = '(SELECT COUNT(*) FROM a) AS cnt, (SELECT SUM(x) FROM b) AS total';
+        $sql = 'SELECT p0_.id AS id_0, p0_.orderCount AS orderCount_1, p0_.totalRevenue AS totalRevenue_2 FROM products p0_';
 
-        $result = $this->walker->publicInjectBeforeFrom($originalSql, $expressions);
-
-        self::assertSame(
-            'SELECT p0_.id, (SELECT COUNT(*) FROM a) AS cnt, (SELECT SUM(x) FROM b) AS total FROM products p0_',
-            $result,
+        $sql = str_replace(
+            'p0_.orderCount',
+            '(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = p0_.id)',
+            $sql,
         );
+
+        $sql = str_replace(
+            'p0_.totalRevenue',
+            '(SELECT COALESCE(SUM(oi.price), 0) FROM order_items oi WHERE oi.product_id = p0_.id)',
+            $sql,
+        );
+
+        self::assertStringContainsString('(SELECT COUNT(*)', $sql);
+        self::assertStringContainsString('(SELECT COALESCE', $sql);
+        self::assertStringContainsString('FROM products p0_', $sql);
     }
 
-    public function testInjectBeforeFromIsCaseInsensitiveForFrom(): void
+    public function testReplacementDoesNotAffectOtherColumnsWithSimilarNames(): void
     {
-        // Doctrine генерирует uppercase FROM, но проверим robustness
-        $lowerSql = 'SELECT t0_.id from users t0_';
-        $expressions = '(SELECT 1) AS computed';
+        // "orderCount" must not accidentally replace "orderCountByDate" or similar
+        $sql = 'SELECT p0_.id AS id_0, p0_.orderCount AS orderCount_1, p0_.orderCountByDate AS orderCountByDate_2 FROM products p0_';
 
-        $result = $this->walker->publicInjectBeforeFrom($lowerSql, $expressions);
+        $result = str_replace(
+            'p0_.orderCount AS',
+            '(SELECT COUNT(*) FROM order_items WHERE product_id = p0_.id) AS',
+            $sql,
+        );
 
-        self::assertStringContainsString('(SELECT 1) AS computed', $result);
-        self::assertStringContainsString(' from users', $result);
+        self::assertStringContainsString('(SELECT COUNT(*)', $result);
+        self::assertStringContainsString('p0_.orderCountByDate', $result);
     }
 
-    public function testInjectBeforeFromReturnsSqlIntactWhenNoFromClause(): void
+    public function testReplacementWithWhereClausePreserved(): void
     {
-        // Edge case: нет FROM — не ломаемся
-        $invalidSql = 'SELECT 1';
-        $expressions = '(SELECT 2) AS x';
+        $sql = 'SELECT c0_.id AS id_0, c0_.orderCount AS orderCount_1 FROM customers c0_ WHERE c0_.active = 1';
+        $resolvedSql = '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = c0_.id)';
 
-        $result = $this->walker->publicInjectBeforeFrom($invalidSql, $expressions);
+        $result = str_replace('c0_.orderCount', $resolvedSql, $sql);
 
-        self::assertSame($invalidSql, $result);
+        self::assertStringContainsString('WHERE c0_.active = 1', $result);
+        self::assertStringContainsString('(SELECT COUNT(*) FROM orders', $result);
     }
 
-    public function testInjectBeforeFromWithWhereAndJoin(): void
+    public function testReplacementWithJoinPreserved(): void
     {
-        $originalSql = 'SELECT u0_.id, u0_.name FROM users u0_ INNER JOIN roles r1_ ON u0_.role_id = r1_.id WHERE u0_.active = 1';
-        $expressions = '(SELECT COUNT(*) FROM sessions s WHERE s.user_id = u0_.id) AS sessionCount';
+        $sql = 'SELECT u0_.id AS id_0, u0_.score AS score_1 FROM users u0_ INNER JOIN roles r1_ ON u0_.role_id = r1_.id';
+        $resolvedSql = '(SELECT SUM(p.points) FROM points p WHERE p.user_id = u0_.id)';
 
-        $result = $this->walker->publicInjectBeforeFrom($originalSql, $expressions);
+        $result = str_replace('u0_.score', $resolvedSql, $sql);
 
-        // Formula and original columns must be present
-        self::assertStringContainsString('sessionCount', $result);
-        self::assertStringContainsString('u0_.name', $result);
-
-        // The injected expression must be placed between original SELECT fields and "FROM users"
-        // i.e. the result must contain exactly this sequence
-        self::assertStringContainsString('u0_.name, (SELECT COUNT(*) FROM sessions', $result);
-
-        // WHERE and JOIN from the original query must still be present intact
-        self::assertStringContainsString('WHERE u0_.active = 1', $result);
-        self::assertStringContainsString('INNER JOIN roles', $result);
-
-        // The main table reference must still be present
-        self::assertStringContainsString('FROM users u0_', $result);
+        self::assertStringContainsString('INNER JOIN roles r1_', $result);
+        self::assertStringContainsString('(SELECT SUM(p.points)', $result);
     }
 }

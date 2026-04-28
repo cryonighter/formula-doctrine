@@ -1,12 +1,11 @@
 <?php
 
-// tests/Unit/Metadata/FormulaRegistryTest.php
-
 namespace Cryonighter\FormulaDoctrine\Tests\Unit\Metadata;
 
-use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithFormulas;
+use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithoutFormulas;
 use PHPUnit\Framework\TestCase;
 
 final class FormulaRegistryTest extends TestCase

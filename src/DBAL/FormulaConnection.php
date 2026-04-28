@@ -77,7 +77,7 @@ final class FormulaConnection extends AbstractConnectionMiddleware
     /**
      * Replaces the {this} placeholder with the actual SQL table alias.
      */
-    protected function resolvePlaceholder(string $sql): string
+    private function resolvePlaceholder(string $sql): string
     {
         return str_replace('{this}', $this->rootAlias, $sql);
     }
