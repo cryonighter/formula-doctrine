@@ -2,17 +2,12 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
-use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
-use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
-use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Events;
-use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\TestCase;
 
@@ -21,11 +16,22 @@ abstract class OrmTestCase extends TestCase
     protected EntityManagerInterface $em;
     protected QueryLogger $queryLogger;
 
+    abstract protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface;
+
     protected function setUp(): void
     {
         $this->queryLogger = new QueryLogger();
         $this->em = $this->createEntityManager($this->queryLogger);
         $this->createSchema();
+    }
+
+    protected function createSchema(): void
+    {
+        $schemaTool = new SchemaTool($this->em);
+        $schemaTool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
+
+        // Reset counter after schema creation — we don't count DDL
+        $this->queryLogger->reset();
     }
 
     protected function tearDown(): void
@@ -34,53 +40,16 @@ abstract class OrmTestCase extends TestCase
         unset($this->em);
     }
 
-    private function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
+    protected function createConnection(DbalConfiguration $configuration): Connection
     {
-        $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
-            paths: [__DIR__ . '/Fixture/Entity'],
-            isDevMode: true,
-        );
-
-        // Connecting FormulaDoctrineConfigurator directly, without Symfony
-        $registry = new FormulaRegistry(new FormulaMetadataFactory());
-        $configurator = new FormulaDoctrineConfigurator($registry);
-        $configurator->configure($ormConfig);
-
-        $dbalConfig = new DbalConfiguration();
-        $dbalConfig->setMiddlewares([
-            new FormulaMiddleware($registry),
-            $queryLogger,
-        ]);
-
-        $connection = DriverManager::getConnection(
+        return DriverManager::getConnection(
             [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
                 //'path' => __DIR__ . '/test_db.sqlite' // For debugging
             ],
-            $dbalConfig,
+            $configuration,
         );
-
-        $em = new EntityManager($connection, $ormConfig);
-
-        $eventManager = $em->getEventManager();
-
-        $eventManager->addEventListener(
-            Events::loadClassMetadata,
-            new LoadClassMetadataListener($registry),
-        );
-
-        return $em;
-    }
-
-    private function createSchema(): void
-    {
-        $schemaTool = new SchemaTool($this->em);
-        $metadata = $this->em->getMetadataFactory()->getAllMetadata();
-        $schemaTool->createSchema($metadata);
-
-        // Reset counter after schema creation — we don't count DDL
-        $this->queryLogger->reset();
     }
 
     /**
@@ -96,5 +65,50 @@ abstract class OrmTestCase extends TestCase
         $this->em->clear();
 
         $this->queryLogger->reset();
+    }
+
+    /**
+     * Helper method to create a product entity
+     */
+    protected function makeProduct(string $name): Product
+    {
+        $product = new Product();
+        $product->name = $name;
+
+        return $product;
+    }
+
+    /**
+     * Helper method to persist order items for a product
+     */
+    protected function persistOrderItems(int $productId, array $prices): void
+    {
+        foreach ($prices as $price) {
+            $item = new OrderItem();
+            $item->productId = $productId;
+            $item->price = (string) $price;
+            $item->quantity = 1;
+            $this->em->persist($item);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+    }
+
+    /**
+     * Helper method for load a product by ID via DQL
+     */
+    protected function getProduct(int $id): Product
+    {
+        $product = $this->em
+            ->createQuery('SELECT p FROM ' . Product::class . ' p WHERE p.id = :id')
+            ->setParameter('id', $id)
+            ->getSingleResult();
+
+        self::assertInstanceOf(Product::class, $product);
+
+        return $product;
     }
 }

@@ -2,11 +2,53 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
+use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
+use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
+use Doctrine\DBAL\Configuration as DbalConfiguration;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
+use Doctrine\ORM\ORMSetup;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
+    protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
+    {
+        $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
+            paths: [__DIR__ . '/Fixture/Entity'],
+            isDevMode: true,
+        );
+
+        // Connecting FormulaDoctrineConfigurator directly, without Symfony
+        $registry = new FormulaRegistry(new FormulaMetadataFactory());
+        $configurator = new FormulaDoctrineConfigurator($registry);
+        $configurator->configure($ormConfig);
+
+        $dbalConfig = new DbalConfiguration();
+        $dbalConfig->setMiddlewares([
+            new FormulaMiddleware($registry),
+            $queryLogger,
+        ]);
+
+        $em = new EntityManager(
+            $this->createConnection($dbalConfig),
+            $ormConfig,
+        );
+
+        $eventManager = $em->getEventManager();
+
+        $eventManager->addEventListener(
+            Events::loadClassMetadata,
+            new LoadClassMetadataListener($registry),
+        );
+
+        return $em;
+    }
+
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders
      */
@@ -215,50 +257,5 @@ final class FormulaHydrationTest extends OrmTestCase
 
             $this->em->clear();
         }
-    }
-
-    /**
-     * Helper method to create a product entity
-     */
-    private function makeProduct(string $name): Product
-    {
-        $product = new Product();
-        $product->name = $name;
-
-        return $product;
-    }
-
-    /**
-     * Helper method to persist order items for a product
-     */
-    private function persistOrderItems(int $productId, array $prices): void
-    {
-        foreach ($prices as $price) {
-            $item = new OrderItem();
-            $item->productId = $productId;
-            $item->price = (string) $price;
-            $item->quantity = 1;
-            $this->em->persist($item);
-        }
-
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-    }
-
-    /**
-     * Helper method for load a product by ID via DQL
-     */
-    private function getProduct(int $id): Product
-    {
-        $product = $this->em
-            ->createQuery('SELECT p FROM ' . Product::class . ' p WHERE p.id = :id')
-            ->setParameter('id', $id)
-            ->getSingleResult();
-
-        self::assertInstanceOf(Product::class, $product);
-
-        return $product;
     }
 }
