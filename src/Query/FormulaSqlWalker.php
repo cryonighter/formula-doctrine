@@ -2,7 +2,6 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
@@ -12,6 +11,11 @@ use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
+use ReflectionMethod;
+use ReflectionParameter;
+use ReflectionProperty;
+use RuntimeException;
+use Throwable;
 
 /**
  * Custom Output Walker that injects formula subqueries into the SELECT clause.
@@ -41,24 +45,11 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     public const HINT_PREVIOUS_WALKER = 'formula_doctrine.previous_walker';
 
-    /**
-     * Resolved formula metadata for the current query.
-     * Populated in getFinalizer(), consumed in walkSelectStatement().
-     *
-     * @var list<FormulaMetadata>
-     */
-    private array $activeFormulas = [];
-
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
         assert($ast instanceof SelectStatement);
 
         $query = $this->getQuery();
-        $registry = $query->getHint(self::HINT_REGISTRY);
-
-        if ($registry instanceof FormulaRegistry) {
-            $this->prepareFormulas($ast, $registry);
-        }
 
         // Delegate to the previously registered walker if present
         $previousWalkerClass = $query->getHint(self::HINT_PREVIOUS_WALKER);
@@ -87,8 +78,10 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     private function applyFormulas(string $sql, SelectStatement $ast): string
     {
-        if ($this->activeFormulas === []) {
-            return $sql;
+        $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
+
+        if (!$registry instanceof FormulaRegistry) {
+            throw new RuntimeException('Formula registry not set in query hint.');
         }
 
         $rootAlias = $this->resolveRootDqlAlias($ast);
@@ -97,12 +90,20 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             return $sql;
         }
 
+        $entityClass = $this->getEntityClassForAlias($rootAlias);
+
+        if (!$entityClass || !$registry->hasFormulas($entityClass)) {
+            return $sql;
+        }
+
+        $activeFormulas = $registry->getForClass($entityClass);
+
         $sqlTableAlias = $this->getSQLTableAlias(
             $this->getQueryComponent($rootAlias)['metadata']->getTableName(),
             $rootAlias,
         );
 
-        foreach ($this->activeFormulas as $meta) {
+        foreach ($activeFormulas as $meta) {
             $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
             $sql = str_replace("$sqlTableAlias.$meta->alias", $resolvedSql, $sql);
         }
@@ -111,56 +112,26 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
-     * Resolves active formulas for the root entity, registers them as scalar
-     * results in the RSM, and switches the hydration mode to FormulaObjectHydrator.
-     *
-     * We access SqlWalker::$rsm directly via Reflection because calling
-     * $this->getQuery()->getResultSetMapping() from within getFinalizer()
-     * would trigger Parser::parse() recursively and cause infinite recursion.
-     */
-    private function prepareFormulas(SelectStatement $ast, FormulaRegistry $registry): void
-    {
-        $rootAlias = $this->resolveRootDqlAlias($ast);
-
-        if ($rootAlias === null) {
-            return;
-        }
-
-        $entityClass = $this->getEntityClassForAlias($rootAlias);
-
-        if ($entityClass === null || !$registry->hasFormulas($entityClass)) {
-            return;
-        }
-
-        $this->activeFormulas = $registry->getForClass($entityClass);
-
-        if ($this->activeFormulas === []) {
-            return;
-        }
-
-        // Formula fields are registered in ClassMetadata as mapped fields by
-        // LoadClassMetadataListener. ObjectHydrator will populate them automatically
-        // via fieldMappings — no addScalarResult, no custom hydrator needed.
-        // The RSM already knows about these fields through ClassMetadata.
-    }
-
-    /**
      * Instantiates the previous walker by reusing our own constructor arguments.
-     * SqlWalker stores query, parserResult and queryComponents — we pass them to the delegate.
+     * Reads the target constructor's parameter names via reflection and maps them
+     * to the corresponding properties of the current instance (inherited from SqlWalker).
      */
     private function createDelegateWalker(string $walkerClass): ?SqlWalker
     {
         try {
-            $queryProperty = new \ReflectionProperty(SqlWalker::class, 'query');
-            $parserResultProperty = new \ReflectionProperty(SqlWalker::class, 'parserResult');
-            $queryComponentsProperty = new \ReflectionProperty(SqlWalker::class, 'queryComponents');
+            $constructor = new ReflectionMethod($walkerClass, '__construct');
 
-            return new $walkerClass(
-                $queryProperty->getValue($this),
-                $parserResultProperty->getValue($this),
-                $queryComponentsProperty->getValue($this),
+            $args = array_map(
+                function (ReflectionParameter $param) {
+                    $reflectionProperty = new ReflectionProperty(SqlWalker::class, $param->getName());
+
+                    return $reflectionProperty->getValue($this);
+                },
+                $constructor->getParameters(),
             );
-        } catch (\Throwable) {
+
+            return new $walkerClass(...$args);
+        } catch (Throwable) {
             return null;
         }
     }
