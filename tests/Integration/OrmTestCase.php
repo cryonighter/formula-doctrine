@@ -23,7 +23,8 @@ abstract class OrmTestCase extends TestCase
 
     protected function setUp(): void
     {
-        $this->em = $this->createEntityManager();
+        $this->queryLogger = new QueryLogger();
+        $this->em = $this->createEntityManager($this->queryLogger);
         $this->createSchema();
     }
 
@@ -33,24 +34,22 @@ abstract class OrmTestCase extends TestCase
         unset($this->em);
     }
 
-    private function createEntityManager(): EntityManagerInterface
+    private function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
     {
         $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
             paths: [__DIR__ . '/Fixture/Entity'],
             isDevMode: true,
         );
 
-        // --- Подключаем FormulaDoctrineConfigurator напрямую, без Symfony ---
+        // Connecting FormulaDoctrineConfigurator directly, without Symfony
         $registry = new FormulaRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);
         $configurator->configure($ormConfig);
 
-        $this->queryLogger = new QueryLogger();
-
         $dbalConfig = new DbalConfiguration();
         $dbalConfig->setMiddlewares([
             new FormulaMiddleware($registry),
-            $this->queryLogger,
+            $queryLogger,
         ]);
 
         $connection = DriverManager::getConnection(
