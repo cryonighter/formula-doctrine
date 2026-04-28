@@ -23,13 +23,13 @@ services:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata, priority: 10 }
 
-    cryonighter.formula_doctrine.listener.post_load:
-        class: Cryonighter\FormulaDoctrine\EventListener\PostLoadListener
+    cryonighter.formula_doctrine.dbal_middleware:
+        class: Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware
         public: false
         arguments:
             - '@cryonighter.formula_doctrine.registry'
         tags:
-            - { name: doctrine.event_listener, event: postLoad }
+            - { name: doctrine.middleware }
 
     Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker:
         autowire: false

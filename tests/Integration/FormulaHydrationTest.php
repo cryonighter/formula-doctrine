@@ -110,8 +110,8 @@ final class FormulaHydrationTest extends OrmTestCase
         $result = $this->getProduct($product->id);
 
         // Ровно 1 запрос через DQL
-        self::assertCount(1, $this->queryLogger->getQueries());
         self::assertSame(1, $result->orderCount);
+        self::assertCount(1, $this->queryLogger->getQueries());
     }
 
     // --- Механизм загрузки через find(): PostLoadListener (fallback) ---
@@ -127,8 +127,8 @@ final class FormulaHydrationTest extends OrmTestCase
 
         $found = $this->em->find(Product::class, $product->id);
 
-        // 2 запроса: 1 основной SELECT + 1 PostLoadListener
-        self::assertCount(2, $this->queryLogger->getQueries());
+        // Ровно 1 запрос через find()
+        self::assertCount(1, $this->queryLogger->getQueries());
         self::assertSame(2, $found->orderCount);
     }
 
@@ -148,6 +148,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $viaFind = $this->em->find(Product::class, $product->id);
 
         self::assertSame($viaQuery, $viaFind);
+
         // 0 запросов — Identity Map, PostLoadListener видит флаг isHydrated
         self::assertCount(0, $this->queryLogger->getQueries());
         self::assertSame(1, $viaFind->orderCount);

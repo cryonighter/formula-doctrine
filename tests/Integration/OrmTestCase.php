@@ -2,9 +2,9 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
+use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
-use Cryonighter\FormulaDoctrine\EventListener\PostLoadListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
@@ -48,7 +48,10 @@ abstract class OrmTestCase extends TestCase
         $this->queryLogger = new QueryLogger();
 
         $dbalConfig = new DbalConfiguration();
-        $dbalConfig->setMiddlewares([$this->queryLogger]);
+        $dbalConfig->setMiddlewares([
+            new FormulaMiddleware($registry),
+            $this->queryLogger,
+        ]);
 
         $connection = DriverManager::getConnection(
             [
@@ -66,11 +69,6 @@ abstract class OrmTestCase extends TestCase
         $eventManager->addEventListener(
             Events::loadClassMetadata,
             new LoadClassMetadataListener($registry),
-        );
-
-        $eventManager->addEventListener(
-            Events::postLoad,
-            new PostLoadListener($registry),
         );
 
         return $em;

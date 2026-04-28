@@ -31,8 +31,7 @@ final readonly class FormulaDoctrineConfigurator
             FormulaSqlWalker::class,
         );
 
-        // FormulaRegistry is stored here so both FormulaSqlWalker (via hint)
-        // and FormulaObjectHydrator (via $this->em->getConfiguration()) can access it
+        // FormulaRegistry is stored here so both FormulaSqlWalker (via hint) can access it
         $configuration->setDefaultQueryHint(
             FormulaSqlWalker::HINT_REGISTRY,
             $this->registry,

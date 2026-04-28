@@ -4,6 +4,7 @@ namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
@@ -143,14 +144,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     /**
      * Resolves the entity FQCN for a given DQL alias via query components.
-     *
-     * @return class-string|null
      */
     private function getEntityClassForAlias(string $dqlAlias): ?string
     {
         $component = $this->getQueryComponent($dqlAlias);
 
-        /** @var \Doctrine\ORM\Mapping\ClassMetadata|null $metadata */
+        /** @var ClassMetadata|null $metadata */
         $metadata = $component['metadata'] ?? null;
 
         return $metadata?->getName();
