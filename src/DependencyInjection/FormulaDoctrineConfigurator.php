@@ -10,7 +10,9 @@ use Doctrine\ORM\Query;
 /**
  * Service Configurator for Doctrine ORM Configuration instances.
  *
- * Wires FormulaSqlWalker as the default output walker via default query hints.
+ * Registers FormulaSqlWalker as the default output walker.
+ * If another walker was already registered, it is preserved via
+ * HINT_PREVIOUS_WALKER so FormulaSqlWalker can delegate to it (Walker Chaining).
  */
 final readonly class FormulaDoctrineConfigurator
 {
@@ -25,6 +27,16 @@ final readonly class FormulaDoctrineConfigurator
      */
     public function configure(Configuration $configuration): void
     {
+        // Preserve any previously registered output walker for chaining
+        $existingWalker = $configuration->getDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER);
+
+        if (is_string($existingWalker) && $existingWalker !== '' && $existingWalker !== FormulaSqlWalker::class) {
+            $configuration->setDefaultQueryHint(
+                FormulaSqlWalker::HINT_PREVIOUS_WALKER,
+                $existingWalker,
+            );
+        }
+
         // Apply FormulaSqlWalker to every DQL query by default
         $configuration->setDefaultQueryHint(
             Query::HINT_CUSTOM_OUTPUT_WALKER,

@@ -19,6 +19,11 @@ use Doctrine\ORM\Query\SqlWalker;
  * Formula fields are registered in ClassMetadata by LoadClassMetadataListener,
  * so ObjectHydrator can hydrate them directly via standard fieldMappings —
  * no custom hydrator or setHydrationMode() needed.
+ *
+ * Supports Walker Chaining: if another OutputWalker was already registered
+ * via HINT_CUSTOM_OUTPUT_WALKER, it is invoked first and our formula replacement
+ * is applied on top of its output. This ensures compatibility with other libraries
+ * that also use custom output walkers (e.g. Gedmo, Paginator extensions).
  */
 final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 {
@@ -29,6 +34,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
      * Hint key: FormulaSqlWalker::HINT_REGISTRY
      */
     public const HINT_REGISTRY = 'formula_doctrine.registry';
+
+    /**
+     * Hint key used to pass the previously registered OutputWalker class name
+     * so we can delegate to it before applying formula replacements.
+     */
+    public const HINT_PREVIOUS_WALKER = 'formula_doctrine.previous_walker';
 
     /**
      * Resolved formula metadata for the current query.
@@ -42,10 +53,25 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     {
         assert($ast instanceof SelectStatement);
 
-        $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
+        $query = $this->getQuery();
+        $registry = $query->getHint(self::HINT_REGISTRY);
 
         if ($registry instanceof FormulaRegistry) {
             $this->prepareFormulas($ast, $registry);
+        }
+
+        // Delegate to the previously registered walker if present
+        $previousWalkerClass = $query->getHint(self::HINT_PREVIOUS_WALKER);
+
+        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
+            $previousWalker = $this->createDelegateWalker($previousWalkerClass);
+
+            if ($previousWalker instanceof OutputWalker) {
+                $finalizer = $previousWalker->getFinalizer($ast);
+                $sql = $finalizer->createExecutor($query)->getSqlStatements();
+
+                return new SingleSelectSqlFinalizer($this->applyFormulas($sql, $ast));
+            }
         }
 
         return new SingleSelectSqlFinalizer($this->walkSelectStatement($ast));
@@ -53,8 +79,14 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     public function walkSelectStatement(SelectStatement $ast): string
     {
-        $sql = parent::walkSelectStatement($ast);
+        return $this->applyFormulas(parent::walkSelectStatement($ast), $ast);
+    }
 
+    /**
+     * Applies formula replacements to the given SQL string.
+     */
+    private function applyFormulas(string $sql, SelectStatement $ast): string
+    {
         if ($this->activeFormulas === []) {
             return $sql;
         }
@@ -110,6 +142,27 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         // LoadClassMetadataListener. ObjectHydrator will populate them automatically
         // via fieldMappings — no addScalarResult, no custom hydrator needed.
         // The RSM already knows about these fields through ClassMetadata.
+    }
+
+    /**
+     * Instantiates the previous walker by reusing our own constructor arguments.
+     * SqlWalker stores query, parserResult and queryComponents — we pass them to the delegate.
+     */
+    private function createDelegateWalker(string $walkerClass): ?SqlWalker
+    {
+        try {
+            $queryProperty = new \ReflectionProperty(SqlWalker::class, 'query');
+            $parserResultProperty = new \ReflectionProperty(SqlWalker::class, 'parserResult');
+            $queryComponentsProperty = new \ReflectionProperty(SqlWalker::class, 'queryComponents');
+
+            return new $walkerClass(
+                $queryProperty->getValue($this),
+                $parserResultProperty->getValue($this),
+                $queryComponentsProperty->getValue($this),
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
