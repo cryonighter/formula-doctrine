@@ -13,8 +13,9 @@ class OrderItem
     #[ORM\GeneratedValue]
     public int $id;
 
-    #[ORM\Column(name: 'product_id')]
-    public int $productId;
+    #[ORM\ManyToOne(targetEntity: Product::class)]
+    #[ORM\JoinColumn(name: 'product_id', referencedColumnName: 'id', nullable: false)]
+    public Product $product;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     public string $price;

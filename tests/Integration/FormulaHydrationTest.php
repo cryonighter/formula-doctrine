@@ -54,12 +54,11 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testDqlSingleEntityFormulaFieldDefaultsWhenNoOrders(): void
     {
-        $product = $this->makeProduct('Empty Product');
-        $this->persist($product);
+        $productId = $this->createProductWithOrderItems(
+            $this->makeProduct('Empty Product'),
+        );
 
-        $this->queryLogger->reset();
-
-        $result = $this->getProduct($product->id);
+        $result = $this->getProduct($productId);
 
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -75,13 +74,12 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testDqlSingleEntityFormulaFieldValuesIsCorrect(): void
     {
-        $product = $this->makeProduct('Popular Product');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [10.00, 20.00, 30.00]);
+        $productId = $this->createProductWithOrderItems(
+            $this->makeProduct('Popular Product'),
+            [10.00, 20.00, 30.00],
+        );
 
-        $this->queryLogger->reset();
-
-        $result = $this->getProduct($product->id);
+        $result = $this->getProduct($productId);
 
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -98,15 +96,9 @@ final class FormulaHydrationTest extends OrmTestCase
     public function testDqlUsesOneQueryWithSubqueries(): void
     {
         // Creating 3 products with different number of orders
-        $p1 = $this->makeProduct('Product 1');
-        $p2 = $this->makeProduct('Product 2');
-        $p3 = $this->makeProduct('Product 3');
-        $this->persist($p1, $p2, $p3);
-
-        $this->persistOrderItems($p1->id, [10.00]);
-        $this->persistOrderItems($p2->id, [20.00, 30.00]);
-
-        $this->queryLogger->reset();
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
 
         // One SELECT should return all 3 products with formulas
         $products = $this->em
@@ -135,14 +127,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFindSingleEntityUsesOneQuery(): void
     {
-        $product = $this->makeProduct('Find Product');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [10.00, 20.00]);
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Find Product'), [10.00, 20.00]);
 
-        $this->em->clear();
-        $this->queryLogger->reset();
-
-        $found = $this->em->find(Product::class, $product->id);
+        $found = $this->em->find(Product::class, $productId);
 
         // Exactly 1 query via find()
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -158,19 +145,17 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFindAfterDqlUsesIdentityMapNoExtraQuery(): void
     {
-        $product = $this->makeProduct('Identity Map Product');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [5.00]);
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Identity Map Product'), [5.00]);
 
         // First we load via DQL - Walker works
-        $viaDql = $this->getProduct($product->id);
+        $viaDql = $this->getProduct($productId);
 
         self::assertSame(1, $viaDql->orderCount);
 
         $this->queryLogger->reset();
 
         // find() should return object from Identity Map without extra queries
-        $viaFind = $this->em->find(Product::class, $product->id);
+        $viaFind = $this->em->find(Product::class, $productId);
 
         self::assertSame($viaDql, $viaFind);
 
@@ -188,11 +173,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFormulaFieldsAreNotPersistedOnFlush(): void
     {
-        $product = $this->makeProduct('Persist Test');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [50.00]);
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Persist Test'), [50.00]);
 
-        $loaded = $this->getProduct($product->id);
+        $loaded = $this->getProduct($productId);
 
         // The field values loaded are correct
         self::assertSame('Persist Test', $loaded->name);
@@ -207,7 +190,7 @@ final class FormulaHydrationTest extends OrmTestCase
         // Check that flush did not break due to formula fields
         $this->em->clear();
 
-        $reloaded = $this->getProduct($product->id);
+        $reloaded = $this->getProduct($productId);
 
         // The field values reloaded are correct
         self::assertSame('Updated Name', $reloaded->name);
@@ -221,10 +204,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFormulaFieldChangeDoesNotTriggerUpdate(): void
     {
-        $product = $this->makeProduct('No Update Test');
-        $this->persist($product);
+        $productId = $this->createProductWithOrderItems($this->makeProduct('No Update Test'));
 
-        $loaded = $this->getProduct($product->id);
+        $loaded = $this->getProduct($productId);
 
         // Changing the formula field
         $loaded->orderCount = 999;
@@ -233,7 +215,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->em->flush();
         $this->em->clear();
 
-        $reloaded = $this->getProduct($product->id);
+        $reloaded = $this->getProduct($productId);
 
         // After reloading, the value is recalculated from the database (0, no orders)
         self::assertSame(0, $reloaded->orderCount);
@@ -244,12 +226,10 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testDqlFormulasWorkOnRepeatedQueryExecution(): void
     {
-        $product = $this->makeProduct('RSM Cache Test');
-        $this->persist($product);
-        $this->persistOrderItems($product->id, [10.00, 20.00]);
+        $productId = $this->createProductWithOrderItems($this->makeProduct('RSM Cache Test'), [10.00, 20.00]);
 
         for ($i = 0; $i < 5; $i++) {
-            $loaded = $this->getProduct($product->id);
+            $loaded = $this->getProduct($productId);
 
             self::assertSame(2, $loaded->orderCount);
             self::assertEqualsWithDelta(20.00, $loaded->maxItemPrice, 0.001);

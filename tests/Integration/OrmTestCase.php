@@ -53,21 +53,6 @@ abstract class OrmTestCase extends TestCase
     }
 
     /**
-     * Persists all given entities and flushes.
-     */
-    protected function persist(object ...$entities): void
-    {
-        foreach ($entities as $entity) {
-            $this->em->persist($entity);
-        }
-
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-    }
-
-    /**
      * Helper method to create a product entity
      */
     protected function makeProduct(string $name): Product
@@ -79,13 +64,15 @@ abstract class OrmTestCase extends TestCase
     }
 
     /**
-     * Helper method to persist order items for a product
+     * Helper method to persist product and order items for him
      */
-    protected function persistOrderItems(int $productId, array $prices): void
+    protected function createProductWithOrderItems(Product $product, array $prices = []): int
     {
+        $this->em->persist($product);
+
         foreach ($prices as $price) {
             $item = new OrderItem();
-            $item->productId = $productId;
+            $item->product = $product;
             $item->price = (string) $price;
             $item->quantity = 1;
             $this->em->persist($item);
@@ -95,6 +82,8 @@ abstract class OrmTestCase extends TestCase
         $this->em->clear();
 
         $this->queryLogger->reset();
+
+        return $product->id;
     }
 
     /**
