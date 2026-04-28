@@ -8,11 +8,13 @@ use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
+use Doctrine\Persistence\Proxy;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
@@ -168,6 +170,52 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertEqualsWithDelta(5.00, $viaFind->totalRevenue, 0.001);
     }
 
+    public function testRelationLazyLoadSingleEntity(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
+        $reviewId = $this->createReview($productId);
+
+        $found = $this->em->find(Review::class, $reviewId);
+
+        // Exactly 1 query via find()
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Verify that product is a Doctrine proxy (not yet loaded)
+        self::assertInstanceOf(Proxy::class, $found->product);
+
+        // The field values are correct (product loaded via lazy load)
+        self::assertSame(2, $found->product->orderCount);
+        self::assertEqualsWithDelta(40.00, $found->product->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(70.00, $found->product->totalRevenue, 0.001);
+
+        // 2 requests - find Review and lazy load Product
+        self::assertCount(2, $this->queryLogger->getQueries());
+    }
+
+    public function testRelationEagerLoadSingleEntity(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
+        $reviewId = $this->createReview($productId);
+
+        $found = $this->em->createQuery('SELECT r, p FROM ' . Review::class . ' r JOIN r.product p WHERE r.id = :id')
+            ->setParameter('id', $reviewId)
+            ->getSingleResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
+        self::assertNotInstanceOf(Proxy::class, $found->product);
+
+        // The field values are correct
+        self::assertSame(2, $found->product->orderCount);
+        self::assertEqualsWithDelta(45.00, $found->product->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(80.00, $found->product->totalRevenue, 0.001);
+
+        // 1 request — Product has already been loaded, there are no additional requests
+        self::assertCount(1, $this->queryLogger->getQueries());
+    }
+
     /**
      * Test that flush does not persist formula fields
      */
@@ -237,5 +285,20 @@ final class FormulaHydrationTest extends OrmTestCase
 
             $this->em->clear();
         }
+    }
+
+    private function createReview(int $productId): int
+    {
+        $review = new Review();
+        $review->product = $this->getProduct($productId);
+        $review->description = 'Test review';
+
+        $this->em->persist($review);
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+
+        return $review->id;
     }
 }
