@@ -287,10 +287,16 @@ final class FormulaHydrationTest extends OrmTestCase
         }
     }
 
+    /**
+     * Helper method to create a review and return its ID
+     */
     private function createReview(int $productId): int
     {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(Product::class, $productId);
+
         $review = new Review();
-        $review->product = $this->getProduct($productId);
+        $review->product = $product;
         $review->description = 'Test review';
 
         $this->em->persist($review);

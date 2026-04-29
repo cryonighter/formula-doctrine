@@ -2,9 +2,12 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
+use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
+use Doctrine\ORM\Query\AST\FromClause;
+use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
@@ -20,12 +23,16 @@ use Throwable;
 /**
  * Custom Output Walker that injects formula subqueries into the SELECT clause.
  *
+ *  Handles both root entities and eagerly joined entities:
+ *    SELECT r, p FROM Review r JOIN r.product p
+ *    → formula fields on Product (p) are replaced with subqueries using p's SQL alias
+ *
  * Formula fields are registered in ClassMetadata by LoadClassMetadataListener,
  * so ObjectHydrator can hydrate them directly via standard fieldMappings —
  * no custom hydrator or setHydrationMode() needed.
  *
  * Supports Walker Chaining: if another OutputWalker was already registered
- * via HINT_CUSTOM_OUTPUT_WALKER, it is invoked first and our formula replacement
+ * via HINT_CUSTOM_OUTPUT_WALKER, it is invoked first and formula replacement
  * is applied on top of its output. This ensures compatibility with other libraries
  * that also use custom output walkers (e.g. Gedmo, Paginator extensions).
  */
@@ -34,8 +41,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     /**
      * We cannot inject via constructor (Doctrine instantiates walkers itself),
      * so the registry is passed through a Query hint.
-     *
-     * Hint key: FormulaSqlWalker::HINT_REGISTRY
      */
     public const HINT_REGISTRY = 'formula_doctrine.registry';
 
@@ -74,41 +79,119 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
-     * Applies formula replacements to the given SQL string.
+     * Applies formula replacements to the SQL string for all collected aliases.
      */
     private function applyFormulas(string $sql, SelectStatement $ast): string
+    {
+        foreach ($this->getFormulasByAlias($ast) as $dqlAlias => $formulas) {
+            $entityClass = $this->getEntityClassForAlias($dqlAlias);
+
+            if ($entityClass === null) {
+                continue;
+            }
+
+            $tableName = $this->getQuery()
+                ->getEntityManager()
+                ->getClassMetadata($entityClass)
+                ->getTableName();
+
+            $sqlTableAlias = $this->getSQLTableAlias($tableName, $dqlAlias);
+
+            foreach ($formulas as $meta) {
+                $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
+                $sql = str_replace("$sqlTableAlias.$meta->alias", $resolvedSql, $sql);
+            }
+        }
+
+        return $sql;
+    }
+
+    /**
+     * Returns formula metadata for every DQL alias in the query
+     * that maps to an entity class with formula fields.
+     *
+     * Iterates over:
+     *   - root entity aliases (FROM clause)
+     *   - join aliases (JOIN clause, including nested joins)
+     *
+     * Return map of DQL alias → list of FormulaMetadata for all
+     * entities in the query that have formula fields.
+     *
+     * @return array<string, array<FormulaMetadata>>
+     */
+    private function getFormulasByAlias(SelectStatement $ast): array
     {
         $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
 
         if (!$registry instanceof FormulaRegistry) {
-            throw new RuntimeException('Formula registry not set in query hint.');
+            throw new RuntimeException('Formula registry not set in query hint');
         }
 
-        $rootAlias = $this->resolveRootDqlAlias($ast);
+        $formulasByAlias = [];
 
-        if ($rootAlias === null) {
-            return $sql;
+        foreach ($this->collectDqlAliases($ast->fromClause) as $dqlAlias) {
+            $entityClass = $this->getEntityClassForAlias($dqlAlias);
+
+            if ($entityClass === null || !$registry->hasFormulas($entityClass)) {
+                continue;
+            }
+
+            $formulas = $registry->getForClass($entityClass);
+
+            if ($formulas) {
+                $formulasByAlias[$dqlAlias] = $formulas;
+            }
         }
 
-        $entityClass = $this->getEntityClassForAlias($rootAlias);
+        return $formulasByAlias;
+    }
 
-        if (!$entityClass || !$registry->hasFormulas($entityClass)) {
-            return $sql;
+    /**
+     * Collects all DQL aliases from the FROM clause including all join aliases.
+     *
+     * Example DQL: 'SELECT r, p FROM Review r JOIN r.product p JOIN p.tags t'
+     *
+     * Returns: ['r', 'p', 't']
+     *
+     * @return array<string>
+     */
+    private function collectDqlAliases(FromClause $fromClause): array
+    {
+        $aliases = [];
+
+        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
+            // Root alias
+            $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
+
+            if ($rangeDeclaration !== null) {
+                $aliases[] = $rangeDeclaration->aliasIdentificationVariable;
+            }
+
+            // Join aliases (direct joins on this declaration)
+            foreach ($declaration->joins as $join) {
+                $aliases = array_merge($aliases, $this->collectJoinAliases($join));
+            }
         }
 
-        $activeFormulas = $registry->getForClass($entityClass);
+        return $aliases;
+    }
 
-        $sqlTableAlias = $this->getSQLTableAlias(
-            $this->getQueryComponent($rootAlias)['metadata']->getTableName(),
-            $rootAlias,
-        );
+    /**
+     * Recursively collects aliases from a join node.
+     *
+     * @return array<string>
+     */
+    private function collectJoinAliases(Join $join): array
+    {
+        $aliases = [];
 
-        foreach ($activeFormulas as $meta) {
-            $resolvedSql = $this->resolvePlaceholder($meta->sql, $sqlTableAlias);
-            $sql = str_replace("$sqlTableAlias.$meta->alias", $resolvedSql, $sql);
+        $alias = $join->joinAssociationDeclaration?->aliasIdentificationVariable ?? null;
+
+        if ($alias !== null) {
+            $aliases[] = $alias;
         }
 
-        return $sql;
+        return $aliases;
     }
 
     /**
@@ -122,7 +205,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $constructor = new ReflectionMethod($walkerClass, '__construct');
 
             $args = array_map(
-                function (ReflectionParameter $param) {
+                function (ReflectionParameter $param): mixed {
                     $reflectionProperty = new ReflectionProperty(SqlWalker::class, $param->getName());
 
                     return $reflectionProperty->getValue($this);
@@ -145,36 +228,12 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
-     * Returns the DQL alias of the root entity in the FROM clause.
-     */
-    private function resolveRootDqlAlias(SelectStatement $ast): ?string
-    {
-        $fromClause = $ast->fromClause;
-
-        if ($fromClause === null) {
-            return null;
-        }
-
-        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
-            $rangeDecl = $declaration->rangeVariableDeclaration ?? null;
-
-            if ($rangeDecl !== null) {
-                return $rangeDecl->aliasIdentificationVariable;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Resolves the entity FQCN for a given DQL alias via query components.
      */
     private function getEntityClassForAlias(string $dqlAlias): ?string
     {
-        $component = $this->getQueryComponent($dqlAlias);
-
         /** @var ClassMetadata|null $metadata */
-        $metadata = $component['metadata'] ?? null;
+        $metadata = $this->getQueryComponent($dqlAlias)['metadata'] ?? null;
 
         return $metadata?->getName();
     }
