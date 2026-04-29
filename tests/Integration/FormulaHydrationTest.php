@@ -5,6 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
+use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
@@ -47,6 +48,11 @@ final class FormulaHydrationTest extends OrmTestCase
         $eventManager->addEventListener(
             Events::loadClassMetadata,
             new LoadClassMetadataListener($registry),
+        );
+
+        $eventManager->addEventListener(
+            'postGenerateSchema',
+            new PostGenerateSchemaListener($registry),
         );
 
         return $em;

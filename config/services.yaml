@@ -23,6 +23,14 @@ services:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata, priority: 10 }
 
+    cryonighter.formula_doctrine.listener.post_generate_schema:
+        class: Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener
+        public: false
+        arguments:
+            - '@cryonighter.formula_doctrine.registry'
+        tags:
+            - { name: doctrine.event_listener, event: postGenerateSchema }
+
     cryonighter.formula_doctrine.dbal_middleware:
         class: Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware
         public: false

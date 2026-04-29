@@ -5,6 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
+use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
@@ -49,16 +50,21 @@ final class WalkerChainingTest extends OrmTestCase
             $this->queryLogger,
         ]);
 
-        $connection = DriverManager::getConnection(
-            ['driver' => 'pdo_sqlite', 'memory' => true],
-            $dbalConfig,
+        $em = new EntityManager(
+            $this->createConnection($dbalConfig),
+            $ormConfig,
         );
 
-        $em = new EntityManager($connection, $ormConfig);
+        $eventManager = $em->getEventManager();
 
-        $em->getEventManager()->addEventListener(
+        $eventManager->addEventListener(
             Events::loadClassMetadata,
             new LoadClassMetadataListener($registry),
+        );
+
+        $eventManager->addEventListener(
+            'postGenerateSchema',
+            new PostGenerateSchemaListener($registry),
         );
 
         return $em;

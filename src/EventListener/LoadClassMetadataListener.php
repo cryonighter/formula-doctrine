@@ -36,12 +36,12 @@ final readonly class LoadClassMetadataListener
             }
 
             $classMetadata->mapField([
-                'fieldName'  => $meta->propertyName,
-                'columnName' => $meta->alias,
-                'type'       => $meta->dbalType,
-                'nullable'   => $meta->nullable,
-                'insertable' => false,
-                'updatable'  => false,
+                'fieldName'     => $meta->propertyName,
+                'columnName'    => $meta->alias,
+                'type'          => $meta->dbalType,
+                'nullable'      => $meta->nullable,
+                'notInsertable' => true,
+                'notUpdatable'  => true,
             ]);
         }
     }
