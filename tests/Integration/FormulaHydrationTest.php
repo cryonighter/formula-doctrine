@@ -196,7 +196,7 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertEqualsWithDelta(5.00, $viaFind->totalRevenue, 0.001);
     }
 
-    public function testRelationLazyLoadSingleEntity(): void
+    public function testFindRelationLazyLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
         $reviewId = $this->createReview($productId);
@@ -218,7 +218,7 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertCount(2, $this->queryLogger->getQueries());
     }
 
-    public function testRelationEagerLoadSingleEntity(): void
+    public function testDqlRelationEagerLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
         $reviewId = $this->createReview($productId);
@@ -353,5 +353,28 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->queryLogger->reset();
 
         return $review->id;
+    }
+
+    /**
+     * Helper method to create multiple reviews for a product
+     */
+    private function createManyReviews(int $productId, array $ratings): void
+    {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(Product::class, $productId);
+
+        foreach ($ratings as $rating) {
+            $review = new Review();
+            $review->product = $product;
+            $review->rating = $rating;
+            $review->description = 'Test review';
+
+            $this->em->persist($review);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
     }
 }

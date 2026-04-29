@@ -4,6 +4,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
@@ -82,6 +83,10 @@ abstract class OrmTestCase extends TestCase
     protected function createProductWithOrderItems(Product $product, array $prices = []): int
     {
         $this->em->persist($product);
+
+        $rating = new Rating();
+        $rating->product = $product;
+        $this->em->persist($rating);
 
         foreach ($prices as $price) {
             $this->em->persist($this->makeOrderItem($product, $price));
