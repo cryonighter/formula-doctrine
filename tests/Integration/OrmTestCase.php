@@ -64,6 +64,19 @@ abstract class OrmTestCase extends TestCase
     }
 
     /**
+     * Helper method to create an order item entity
+     */
+    protected function makeOrderItem(Product $product, float $price): OrderItem
+    {
+        $item = new OrderItem();
+        $item->product = $product;
+        $item->price = (string) $price;
+        $item->quantity = 1;
+
+        return $item;
+    }
+
+    /**
      * Helper method to persist product and order items for him
      */
     protected function createProductWithOrderItems(Product $product, array $prices = []): int
@@ -71,11 +84,7 @@ abstract class OrmTestCase extends TestCase
         $this->em->persist($product);
 
         foreach ($prices as $price) {
-            $item = new OrderItem();
-            $item->product = $product;
-            $item->price = (string) $price;
-            $item->quantity = 1;
-            $this->em->persist($item);
+            $this->em->persist($this->makeOrderItem($product, $price));
         }
 
         $this->em->flush();

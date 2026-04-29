@@ -13,6 +13,7 @@ use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
+use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\Persistence\Proxy;
 
@@ -267,6 +268,27 @@ final class FormulaHydrationTest extends OrmTestCase
 
         // After reloading, the value is recalculated from the database (0, no orders)
         self::assertSame(0, $reloaded->orderCount);
+    }
+
+    /**
+     * Test that refreshing an entity with formula fields updates the formula fields
+     *
+     * @throws ORMException
+     */
+    public function testFormulaFieldUpdatedWhenRefresh(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('No Update Test'), [15.00, 25.00]);
+
+        $loaded = $this->getProduct($productId);
+
+        $this->em->persist($this->makeOrderItem($loaded, 35.00));
+        $this->em->flush();
+        $this->em->refresh($loaded);
+
+        // After refreshing, the value is recalculated from the database
+        self::assertSame(3, $loaded->orderCount);
+        self::assertEqualsWithDelta(35.00, $loaded->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(75.00, $loaded->totalRevenue, 0.001);
     }
 
     /**
