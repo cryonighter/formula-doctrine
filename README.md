@@ -34,7 +34,25 @@ return [
 ];
 ```
 
-That's it. No additional configuration is required.
+### Bundle Registration Order
+
+If you use other bundles that extend Doctrine ORM with custom SQL walkers
+(e.g. Gedmo DoctrineExtensions, API Platform), register `FormulaDoctrineBundle`
+**last** in `config/bundles.php`:
+```
+php
+return [
+   // ... other bundles ...
+   Stof\DoctrineExtensionsBundle\StofDoctrineExtensionsBundle::class => ['all' => true],
+   Cryonighter\FormulaDoctrine\FormulaDoctrineBundle::class => ['all' => true], // ← last
+];
+```
+`FormulaDoctrineBundle` automatically detects and chains with any previously
+registered output walker, so both transformations are applied to every query.
+
+If another bundle is registered after `FormulaDoctrineBundle` and also sets a
+custom output walker globally, you may need to manually call
+`FormulaDoctrineConfigurator::configure()` in your application's bundle.
 
 ## Usage
 
