@@ -22,7 +22,7 @@ class Product
     public int $orderCount = 0;
 
     // SUM подзапрос с выражением
-    #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items oi WHERE oi.product_id = {this}.id)')]
+    #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items oi WHERE oi.product_id = {this}.id)', alias: 'total')]
     public float $totalRevenue = 0.0;
 
     // Nullable формула
