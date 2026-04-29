@@ -63,8 +63,9 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $previousWalker = $this->createDelegateWalker($previousWalkerClass);
 
             if ($previousWalker instanceof OutputWalker) {
-                $finalizer = $previousWalker->getFinalizer($ast);
-                $sql = $finalizer->createExecutor($query)->getSqlStatements();
+                $sql = $previousWalker->getFinalizer($ast)
+                    ->createExecutor($query)
+                    ->getSqlStatements();
 
                 return new SingleSelectSqlFinalizer($this->applyFormulas($sql, $ast));
             }

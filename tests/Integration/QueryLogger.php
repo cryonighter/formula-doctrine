@@ -22,7 +22,7 @@ use Doctrine\DBAL\Driver\Statement;
  */
 final class QueryLogger implements Middleware
 {
-    /** @var list<string> */
+    /** @var array<string> */
     private array $queries = [];
 
     public function wrap(Driver $driver): Driver
@@ -31,7 +31,7 @@ final class QueryLogger implements Middleware
 
         return new class ($driver, $queries) extends AbstractDriverMiddleware
         {
-            /** @param list<string> $queries */
+            /** @param array<string> $queries */
             public function __construct(
                 Driver $driver,
                 private array &$queries,
@@ -45,7 +45,7 @@ final class QueryLogger implements Middleware
 
                 return new class (parent::connect($params), $queries) extends AbstractConnectionMiddleware
                 {
-                    /** @param list<string> $queries */
+                    /** @param array<string> $queries */
                     public function __construct(
                         Connection $connection,
                         private array &$queries,
@@ -83,7 +83,7 @@ final class QueryLogger implements Middleware
         return count($this->queries);
     }
 
-    /** @return list<string> */
+    /** @return array<string> */
     public function getQueries(): array
     {
         return $this->queries;

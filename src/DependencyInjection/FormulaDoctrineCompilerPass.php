@@ -49,7 +49,7 @@ final class FormulaDoctrineCompilerPass implements CompilerPassInterface
     /**
      * Finds all "doctrine.orm.{name}_configuration" service IDs in the container.
      *
-     * @return list<string>
+     * @return array<string>
      */
     private function findOrmConfigurationServiceIds(ContainerBuilder $container): array
     {

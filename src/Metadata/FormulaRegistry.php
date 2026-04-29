@@ -11,7 +11,7 @@ use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 final class FormulaRegistry
 {
     /**
-     * @var array<class-string, list<FormulaMetadata>>
+     * @var array<class-string, array<FormulaMetadata>>
      */
     private array $metadata = [];
 
@@ -28,7 +28,7 @@ final class FormulaRegistry
      * Returns all class names that have been scanned so far.
      * Used by FormulaConnection to find relevant formula metadata.
      *
-     * @return list<class-string>
+     * @return array<class-string>
      */
     public function getScannedClasses(): array
     {
@@ -38,9 +38,9 @@ final class FormulaRegistry
     /**
      * Returns all formula metadata for a given class.
      *
-     * @param class-string $className
+     * @param string $className
      *
-     * @return list<FormulaMetadata>
+     * @return array<FormulaMetadata>
      */
     public function getForClass(string $className): array
     {
@@ -66,11 +66,6 @@ final class FormulaRegistry
 
     /**
      * Returns formula metadata for a given property within a class.
-     *
-     * @param string $className
-     * @param string $propertyName
-     *
-     * @return FormulaMetadata|null
      */
     public function getForProperty(string $className, string $propertyName): ?FormulaMetadata
     {

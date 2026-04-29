@@ -4,6 +4,10 @@ namespace Cryonighter\FormulaDoctrine\Metadata;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
+use ReflectionClass;
+use ReflectionNamedType;
+use ReflectionProperty;
+use ReflectionUnionType;
 
 /**
  * Reads #[Formula] attributes from entity classes via Reflection.
@@ -26,12 +30,13 @@ final class FormulaMetadataFactory
     ];
 
     /**
-     * @param class-string $className
-     * @return list<FormulaMetadata>
+     * @param string $className
+     *
+     * @return array<FormulaMetadata>
      */
     public function createForClass(string $className): array
     {
-        $reflection = new \ReflectionClass($className);
+        $reflection = new ReflectionClass($className);
         $result = [];
 
         foreach ($reflection->getProperties() as $property) {
@@ -62,7 +67,7 @@ final class FormulaMetadataFactory
     /**
      * @return array{string, string, bool} [$phpType, $dbalType, $nullable]
      */
-    private function resolveTypeInfo(\ReflectionProperty $property): array
+    private function resolveTypeInfo(ReflectionProperty $property): array
     {
         $type = $property->getType();
 
@@ -72,16 +77,16 @@ final class FormulaMetadataFactory
 
         $nullable = $type->allowsNull();
 
-        if ($type instanceof \ReflectionNamedType) {
+        if ($type instanceof ReflectionNamedType) {
             $phpType = $type->getName();
             $dbalType = self::PHP_TO_DBAL_TYPE[$phpType] ?? 'string';
 
             return [$phpType, $dbalType, $nullable];
         }
 
-        if ($type instanceof \ReflectionUnionType) {
+        if ($type instanceof ReflectionUnionType) {
             foreach ($type->getTypes() as $innerType) {
-                if ($innerType instanceof \ReflectionNamedType && $innerType->getName() !== 'null') {
+                if ($innerType instanceof ReflectionNamedType && $innerType->getName() !== 'null') {
                     $phpType = $innerType->getName();
                     $dbalType = self::PHP_TO_DBAL_TYPE[$phpType] ?? 'string';
 

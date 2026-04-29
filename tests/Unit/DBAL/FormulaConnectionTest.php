@@ -8,6 +8,7 @@ use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\DBAL\Driver\Connection;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * Tests FormulaConnection SQL processing logic in isolation.
@@ -186,12 +187,12 @@ final class FormulaConnectionTest extends TestCase
      * Seeds FormulaRegistry with given metadata by bypassing Reflection
      * (inline entity classes have no #[Formula] attributes).
      *
-     * @param list<FormulaMetadata> $metadataList
+     * @param array<FormulaMetadata> $metadataList
      */
     private function seedRegistry(array $metadataList): void
     {
-        $prop = new \ReflectionProperty(FormulaRegistry::class, 'metadata');
-        $scanned = new \ReflectionProperty(FormulaRegistry::class, 'scanned');
+        $prop = new ReflectionProperty(FormulaRegistry::class, 'metadata');
+        $scanned = new ReflectionProperty(FormulaRegistry::class, 'scanned');
 
         $className = 'FakeEntity_' . uniqid();
 
