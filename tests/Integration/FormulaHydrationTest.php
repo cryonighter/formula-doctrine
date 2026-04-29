@@ -126,6 +126,31 @@ final class FormulaHydrationTest extends OrmTestCase
     }
 
     /**
+     * Test that a findAll() uses a single query with subqueries to load formulas (no N+1)
+     */
+    public function testFindAllUsesOneQueryWithSubqueries(): void
+    {
+        // Creating 3 products with different number of orders
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [20.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [30.00, 40.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
+
+        // One SELECT should return all 3 products with formulas
+        $products = $this->em->getRepository(Product::class)->findAll();
+
+        // Returned the required amount of products
+        self::assertCount(3, $products);
+
+        // Exactly 1 query - all formulas in one SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // The field values are correct
+        self::assertSame(1, $products[0]->orderCount);
+        self::assertSame(2, $products[1]->orderCount);
+        self::assertSame(0, $products[2]->orderCount);
+    }
+
+    /**
      * Test that find() method uses only one query to fetch entity with formulas
      */
     public function testFindSingleEntityUsesOneQuery(): void
