@@ -1,6 +1,6 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\DependencyInjection;
+namespace Cryonighter\FormulaDoctrine\Configuration;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
@@ -23,7 +23,6 @@ final readonly class FormulaDoctrineConfigurator
 
     /**
      * Configures a Doctrine ORM Configuration instance.
-     * Invoked automatically by the Symfony service container.
      */
     public function configure(Configuration $configuration): void
     {

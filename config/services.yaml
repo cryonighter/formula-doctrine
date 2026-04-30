@@ -10,7 +10,7 @@ services:
             - '@cryonighter.formula_doctrine.metadata_factory'
 
     cryonighter.formula_doctrine.configurator:
-        class: Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator
+        class: Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator
         public: false
         arguments:
             - '@cryonighter.formula_doctrine.registry'
