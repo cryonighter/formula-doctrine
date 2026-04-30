@@ -32,13 +32,13 @@ final class WalkerChainingTest extends OrmTestCase
             isDevMode: true,
         );
 
-        // Сначала регистрируем "чужой" Walker — имитируем стороннюю библиотеку
+        // First, we register a "foreign" Walker - we imitate a third-party library
         $ormConfig->setDefaultQueryHint(
             Query::HINT_CUSTOM_OUTPUT_WALKER,
             AddCommentSqlWalker::class,
         );
 
-        // Затем подключаем наш пакет — он должен сохранить AddCommentSqlWalker через chaining
+        // Then we connect our package - it should preserve AddCommentSqlWalker through chaining
         $registry = new FormulaRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);
         $configurator->configure($ormConfig);

@@ -2,8 +2,10 @@
 
 namespace Cryonighter\FormulaDoctrine\EventListener;
 
+use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
+use Doctrine\ORM\Mapping\FieldMapping;
 use Doctrine\ORM\Mapping\MappingException;
 
 /**
@@ -32,7 +34,14 @@ final readonly class LoadClassMetadataListener
 
         foreach ($formulas as $meta) {
             if ($classMetadata->hasField($meta->propertyName)) {
-                continue;
+                $fieldMapping = $classMetadata->getFieldMapping($meta->propertyName);
+
+                if ($this->isFormulaField($fieldMapping, $meta)) {
+                    continue;
+                }
+
+                // Remove metadata if it was not created by us (for example, through the Column attribute)
+                unset($classMetadata->fieldMappings[$meta->propertyName]);
             }
 
             $classMetadata->mapField([
@@ -44,5 +53,26 @@ final readonly class LoadClassMetadataListener
                 'notUpdatable'  => true,
             ]);
         }
+    }
+
+    private function isFormulaField(FieldMapping $fieldMapping, FormulaMetadata $formulaMetadata): bool
+    {
+        if ($fieldMapping->columnName !== $formulaMetadata->alias) {
+            return false;
+        }
+
+        if ($fieldMapping->type !== $formulaMetadata->dbalType) {
+            return false;
+        }
+
+        if ($fieldMapping->nullable !== $formulaMetadata->nullable) {
+            return false;
+        }
+
+        if ($fieldMapping->notInsertable === false || $fieldMapping->notUpdatable === false) {
+            return false;
+        }
+
+        return true;
     }
 }

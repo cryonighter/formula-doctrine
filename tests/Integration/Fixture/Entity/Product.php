@@ -17,15 +17,17 @@ class Product
     #[ORM\Column]
     public string $name;
 
-    // COUNT подзапрос
+    // COUNT subquery
+    // Formula and Column together - formula priority
     #[Formula('(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = {this}.id)')]
+    #[ORM\Column(name: 'order_count')]
     public int $orderCount = 0;
 
-    // SUM подзапрос с выражением
+    // SUM subquery with expression
     #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items oi WHERE oi.product_id = {this}.id)', alias: 'total')]
     public float $totalRevenue = 0.0;
 
-    // Nullable формула
+    // Nullable formula
     #[Formula('(SELECT MAX(oi.price) FROM order_items oi WHERE oi.product_id = {this}.id)')]
     public ?float $maxItemPrice = null;
 }
