@@ -3,10 +3,11 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Unit\DBAL;
 
 use Cryonighter\FormulaDoctrine\DBAL\FormulaConnection;
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Doctrine\DBAL\Driver\Connection;
+use Doctrine\DBAL\Driver\Statement;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
@@ -120,19 +121,6 @@ final class FormulaConnectionTest extends TestCase
         self::assertStringNotContainsString('{this}', $processed);
     }
 
-    public function testThisPlaceholderIsReplacedWithCustomRootAlias(): void
-    {
-        $this->seedRegistry([
-            $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
-        ]);
-
-        $sql = 'SELECT u1.id AS id_1, u1.orderCount AS orderCount_2 FROM customers u1';
-
-        $processed = $this->process($sql, rootAlias: 'u1');
-
-        self::assertStringContainsString('o.customer_id = u1.id', $processed);
-    }
-
     // --- WHERE and JOIN preservation ---
 
     public function testWhereClauseIsPreservedAfterReplacement(): void
@@ -165,7 +153,7 @@ final class FormulaConnectionTest extends TestCase
 
     // --- Helpers ---
 
-    private function process(string $sql, string $rootAlias = 't0'): string
+    private function process(string $sql): string
     {
         // We capture the SQL passed to prepare() via the mock
         $capturedSql = null;
@@ -174,10 +162,10 @@ final class FormulaConnectionTest extends TestCase
             ->method('prepare')
             ->willReturnCallback(function (string $sql) use (&$capturedSql) {
                 $capturedSql = $sql;
-                return $this->createMock(\Doctrine\DBAL\Driver\Statement::class);
+                return $this->createMock(Statement::class);
             });
 
-        $connection = new FormulaConnection($this->connectionMock, $this->registry, $rootAlias);
+        $connection = new FormulaConnection($this->connectionMock, $this->registry);
         $connection->prepare($sql);
 
         return $capturedSql ?? $sql;
