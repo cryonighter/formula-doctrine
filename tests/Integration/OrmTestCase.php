@@ -83,11 +83,7 @@ abstract class OrmTestCase extends TestCase
     protected function createProductWithOrderItems(Product $product, array $prices = []): int
     {
         $this->em->persist($product);
-
-        $rating = new Rating();
-        $rating->product = $product;
-        $rating->stars = 0;
-        $this->em->persist($rating);
+        $this->em->persist(new Rating($product));
 
         foreach ($prices as $price) {
             $this->em->persist($this->makeOrderItem($product, $price));
