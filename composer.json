@@ -2,8 +2,16 @@
     "name": "cryonighter/formula-doctrine",
     "type": "package",
     "description": "Hibernate-style attribute #[Formula] computed fields for Doctrine ORM entities",
+    "homepage": "https://github.com/cryonighter/formula-doctrine",
     "license": "MIT",
     "keywords": ["doctrine", "orm", "formula", "computed", "symfony", "hibernate"],
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "Andrey Reshetchenko",
+            "email": "cryonighter@yandex.ru"
+        }
+    ],
     "require": {
         "php": ">=8.2",
         "doctrine/orm": "^3.0",
@@ -25,7 +33,8 @@
     "config": {
         "platform": {
             "php": "8.2"
-        }
+        },
+        "sort-packages": true
     },
     "extra": {
         "symfony": {

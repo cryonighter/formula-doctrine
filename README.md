@@ -1,21 +1,26 @@
 # Formula Doctrine
 
+[![Latest Version on Packagist][ico-version]][link-packagist]
+[![Software License][ico-license]](LICENSE)
+[![Total Downloads][ico-downloads]][link-downloads]
+
 Hibernate-style `#[Formula]` computed fields for Doctrine ORM 3 entities.
 
 Adds support for read-only, SQL-computed entity properties populated via
 subqueries, aggregations and joins — without N+1 queries.
 
 ```php
-#[Formula('(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)')]
-public int $orderCount = 0;
+#[ORM\Entity]
+class Customer
+{
+    #[Formula('(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)')]
+    public int $orderCount = 0;
+}
 ```
 
 ## Requirements
 
-- PHP 8.2+
-- doctrine/orm ^3.0
-- doctrine/dbal ^4.0
-- symfony/http-kernel ^6.4 || ^7.0
+- **PHP >= 8.2.0** but the latest stable version of PHP is recommended
 
 ## Install
 
@@ -377,4 +382,10 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 [PSR-2]: http://www.php-fig.org/psr/psr-2/
 [PSR-4]: http://www.php-fig.org/psr/psr-4/
 
+[ico-version]: https://img.shields.io/packagist/v/cryonighter/formula-doctrine.svg?style=flat-square
+[ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
+[ico-downloads]: https://img.shields.io/packagist/dt/cryonighter/formula-doctrine.svg?style=flat-square
+
 [link-author]: https://github.com/cryonighter
+[link-packagist]: https://packagist.org/packages/cryonighter/formula-doctrine
+[link-downloads]: https://packagist.org/packages/cryonighter/formula-doctrine
