@@ -2,8 +2,8 @@
 
 namespace Cryonighter\FormulaDoctrine\EventListener;
 
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Mapping\FieldMapping;
 use Doctrine\ORM\Mapping\MappingException;
@@ -20,7 +20,7 @@ use Doctrine\ORM\Mapping\MappingException;
 final readonly class LoadClassMetadataListener
 {
     public function __construct(
-        private FormulaRegistry $registry,
+        private FormulaMetadataRegistry $registry,
     ) {}
 
     /**

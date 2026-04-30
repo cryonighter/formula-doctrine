@@ -2,8 +2,8 @@
 
 namespace Cryonighter\FormulaDoctrine\Query;
 
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
@@ -124,7 +124,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     {
         $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
 
-        if (!$registry instanceof FormulaRegistry) {
+        if (!$registry instanceof FormulaMetadataRegistry) {
             throw new RuntimeException('Formula registry not set in query hint');
         }
 

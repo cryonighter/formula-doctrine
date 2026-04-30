@@ -2,13 +2,11 @@
 
 namespace Cryonighter\FormulaDoctrine\Metadata;
 
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
-
 /**
  * In-memory registry of formula metadata per entity class.
  * Acts as a session-scoped cache to avoid repeated Reflection calls.
  */
-final class FormulaRegistry
+final class FormulaMetadataRegistry
 {
     /**
      * @var array<class-string, array<FormulaMetadata>>

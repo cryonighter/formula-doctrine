@@ -2,7 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Configuration;
 
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\Query;
@@ -17,7 +17,7 @@ use Doctrine\ORM\Query;
 final readonly class FormulaDoctrineConfigurator
 {
     public function __construct(
-        private FormulaRegistry $registry,
+        private FormulaMetadataRegistry $registry,
     ) {
     }
 
@@ -42,7 +42,7 @@ final readonly class FormulaDoctrineConfigurator
             FormulaSqlWalker::class,
         );
 
-        // FormulaRegistry is stored here so both FormulaSqlWalker (via hint) can access it
+        // FormulaMetadataRegistry is stored here so both FormulaSqlWalker (via hint) can access it
         $configuration->setDefaultQueryHint(
             FormulaSqlWalker::HINT_REGISTRY,
             $this->registry,

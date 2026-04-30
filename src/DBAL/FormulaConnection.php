@@ -2,8 +2,8 @@
 
 namespace Cryonighter\FormulaDoctrine\DBAL;
 
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Middleware\AbstractConnectionMiddleware;
 use Doctrine\DBAL\Driver\Result;
@@ -22,7 +22,7 @@ final class FormulaConnection extends AbstractConnectionMiddleware
 {
     public function __construct(
         Connection $connection,
-        private readonly FormulaRegistry $registry,
+        private readonly FormulaMetadataRegistry $registry,
     ) {
         parent::__construct($connection);
     }

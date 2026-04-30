@@ -5,7 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Unit\DBAL;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaConnection;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Statement;
 use PHPUnit\Framework\TestCase;
@@ -20,12 +20,12 @@ use ReflectionProperty;
  */
 final class FormulaConnectionTest extends TestCase
 {
-    private FormulaRegistry $registry;
+    private FormulaMetadataRegistry $registry;
     private Connection $connectionMock;
 
     protected function setUp(): void
     {
-        $this->registry = new FormulaRegistry(new FormulaMetadataFactory());
+        $this->registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
         $this->connectionMock = $this->createMock(Connection::class);
     }
 
@@ -172,15 +172,15 @@ final class FormulaConnectionTest extends TestCase
     }
 
     /**
-     * Seeds FormulaRegistry with given metadata by bypassing Reflection
+     * Seeds FormulaMetadataRegistry with given metadata by bypassing Reflection
      * (inline entity classes have no #[Formula] attributes).
      *
      * @param array<FormulaMetadata> $metadataList
      */
     private function seedRegistry(array $metadataList): void
     {
-        $prop = new ReflectionProperty(FormulaRegistry::class, 'metadata');
-        $scanned = new ReflectionProperty(FormulaRegistry::class, 'scanned');
+        $prop = new ReflectionProperty(FormulaMetadataRegistry::class, 'metadata');
+        $scanned = new ReflectionProperty(FormulaMetadataRegistry::class, 'scanned');
 
         $className = 'FakeEntity_' . uniqid();
 

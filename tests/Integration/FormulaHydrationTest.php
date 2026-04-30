@@ -7,7 +7,7 @@ use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
@@ -29,7 +29,7 @@ final class FormulaHydrationTest extends OrmTestCase
         );
 
         // Connecting FormulaDoctrineConfigurator directly, without Symfony
-        $registry = new FormulaRegistry(new FormulaMetadataFactory());
+        $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);
         $configurator->configure($ormConfig);
 

@@ -2,7 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\DBAL;
 
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\DBAL\Driver;
 use Doctrine\DBAL\Driver\Middleware;
 
@@ -20,7 +20,7 @@ use Doctrine\DBAL\Driver\Middleware;
 final readonly class FormulaMiddleware implements Middleware
 {
     public function __construct(
-        private FormulaRegistry $registry,
+        private FormulaMetadataRegistry $registry,
     ) {}
 
     public function wrap(Driver $driver): Driver

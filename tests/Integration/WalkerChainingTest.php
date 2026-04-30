@@ -7,7 +7,7 @@ use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Walker\AddCommentSqlWalker;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
@@ -39,7 +39,7 @@ final class WalkerChainingTest extends OrmTestCase
         );
 
         // Then we connect our package - it should preserve AddCommentSqlWalker through chaining
-        $registry = new FormulaRegistry(new FormulaMetadataFactory());
+        $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);
         $configurator->configure($ormConfig);
 

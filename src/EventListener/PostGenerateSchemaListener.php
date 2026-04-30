@@ -2,7 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\EventListener;
 
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
 use Throwable;
 
@@ -20,7 +20,7 @@ use Throwable;
 final readonly class PostGenerateSchemaListener
 {
     public function __construct(
-        private FormulaRegistry $registry,
+        private FormulaMetadataRegistry $registry,
     ) {}
 
     public function postGenerateSchema(GenerateSchemaEventArgs $args): void

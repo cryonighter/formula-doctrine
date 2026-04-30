@@ -3,8 +3,8 @@ services:
         class: Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory
         public: false
 
-    cryonighter.formula_doctrine.registry:
-        class: Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry
+    cryonighter.formula_doctrine.metadata_registry:
+        class: Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry
         public: true
         arguments:
             - '@cryonighter.formula_doctrine.metadata_factory'
@@ -13,13 +13,13 @@ services:
         class: Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator
         public: false
         arguments:
-            - '@cryonighter.formula_doctrine.registry'
+            - '@cryonighter.formula_doctrine.metadata_registry'
 
     cryonighter.formula_doctrine.listener.load_class_metadata:
         class: Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener
         public: false
         arguments:
-            - '@cryonighter.formula_doctrine.registry'
+            - '@cryonighter.formula_doctrine.metadata_registry'
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata, priority: 10 }
 
@@ -27,7 +27,7 @@ services:
         class: Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener
         public: false
         arguments:
-            - '@cryonighter.formula_doctrine.registry'
+            - '@cryonighter.formula_doctrine.metadata_registry'
         tags:
             - { name: doctrine.event_listener, event: postGenerateSchema }
 
@@ -35,7 +35,7 @@ services:
         class: Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware
         public: false
         arguments:
-            - '@cryonighter.formula_doctrine.registry'
+            - '@cryonighter.formula_doctrine.metadata_registry'
         tags:
             - { name: doctrine.middleware }
 

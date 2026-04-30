@@ -3,18 +3,18 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Unit\Metadata;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithFormulas;
 use Cryonighter\FormulaDoctrine\Tests\Unit\Metadata\Fixture\Entity\EntityWithoutFormulas;
 use PHPUnit\Framework\TestCase;
 
-final class FormulaRegistryTest extends TestCase
+final class FormulaMetadataRegistryTest extends TestCase
 {
-    private FormulaRegistry $registry;
+    private FormulaMetadataRegistry $registry;
 
     protected function setUp(): void
     {
-        $this->registry = new FormulaRegistry(new FormulaMetadataFactory());
+        $this->registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
     }
 
     public function testHasFormulasReturnsFalseForEntityWithout(): void

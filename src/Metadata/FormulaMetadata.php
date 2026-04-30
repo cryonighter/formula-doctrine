@@ -1,6 +1,6 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Mapping;
+namespace Cryonighter\FormulaDoctrine\Metadata;
 
 /**
  * Immutable value object describing a single formula field on an entity.

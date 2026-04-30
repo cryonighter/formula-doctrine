@@ -3,7 +3,6 @@
 namespace Cryonighter\FormulaDoctrine\Metadata;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
-use Cryonighter\FormulaDoctrine\Mapping\FormulaMetadata;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
@@ -42,7 +41,7 @@ final class FormulaMetadataFactory
         foreach ($reflection->getProperties() as $property) {
             $attributes = $property->getAttributes(Formula::class);
 
-            if ($attributes === []) {
+            if (!$attributes) {
                 continue;
             }
 

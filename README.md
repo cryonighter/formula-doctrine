@@ -208,8 +208,8 @@ public int $orderCount = 0;
    and builds `FormulaMetadata` value objects (SQL, PHP type inferred from type hint,
    alias, nullability).
 
-2. **`FormulaRegistry`** caches the metadata per entity class — Reflection runs
-   only once per class per process.
+2. **`FormulaMetadataRegistry`** caches the metadata per entity class — Reflection
+   runs only once per class per process.
 
 3. **`LoadClassMetadataListener`** registers formula fields as non-insertable,
    non-updatable mapped fields in Doctrine `ClassMetadata` when entity metadata
@@ -222,7 +222,7 @@ public int $orderCount = 0;
    column — their value is computed by a SQL subquery at query time.
 
 5. **`FormulaDoctrineConfigurator`** (a Symfony service configurator) registers
-   `FormulaSqlWalker` as the default output walker and passes `FormulaRegistry`
+   `FormulaSqlWalker` as the default output walker and passes `FormulaMetadataRegistry`
    as a default query hint into every Doctrine `Configuration` instance.
 
 6. **`FormulaSqlWalker`** (extends `SqlWalker`, implements `OutputWalker`) intercepts
