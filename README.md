@@ -19,40 +19,87 @@ public int $orderCount = 0;
 
 ## Install
 
-Via Composer
+### Symfony
+
+If you are using Symfony, install the bundle instead — it wires everything automatically via Symfony DI:
+
+```shell script
+composer require cryonighter/formula-doctrine-bundle
+```
+
+See [cryonighter/formula-doctrine-bundle](https://github.com/cryonighter/formula-doctrine-bundle)
+for installation and configuration instructions.
+
+### Standalone
+
+If you use another framework or write in bare PHP:
 
 ```shell script
 composer require cryonighter/formula-doctrine
 ```
 
-Register the bundle in `config/bundles.php`:
+Bootstrap the stack manually when creating your `EntityManager`:
 
-```php
-return [
-    // ...
-    Cryonighter\FormulaDoctrine\FormulaDoctrineBundle::class => ['all' => true],
-];
+```
+<?php
+
+use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
+use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
+use Cryonighter\FormulaDoctrine\EventListener\OnFlushListener;
+use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Doctrine\DBAL\Configuration as DbalConfiguration;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Events;
+use Doctrine\ORM\ORMSetup;
+
+// 1. Build the registry
+$registry = new FormulaRegistry(new FormulaMetadataFactory());
+
+// 2. Configure DBAL — add FormulaMiddleware
+$dbalConfig = new DbalConfiguration();
+$dbalConfig->setMiddlewares([
+    new FormulaMiddleware($registry),
+    // ... your other middlewares
+]);
+
+$connection = DriverManager::getConnection([
+    'driver' => 'pdo_pgsql',
+    'url'    => 'postgresql://user:pass@localhost/mydb',
+], $dbalConfig);
+
+// 3. Configure ORM
+$ormConfig = ORMSetup::createAttributeMetadataConfiguration(
+    paths: [__DIR__ . '/src/Entity'],
+    isDevMode: true,
+);
+
+$configurator = new FormulaDoctrineConfigurator($registry);
+$configurator->configure($ormConfig);
+
+// 4. Create EntityManager
+$em = new EntityManager($connection, $ormConfig);
+
+// 5. Register event listeners
+$eventManager = $em->getEventManager();
+
+$eventManager->addEventListener(
+    Events::loadClassMetadata,
+    new LoadClassMetadataListener($registry),
+);
+
+$eventManager->addEventListener(
+    'postGenerateSchema',
+    new PostGenerateSchemaListener($registry),
+);
 ```
 
-### Bundle Registration Order
+That's it. Formula fields on your entities will be populated automatically
+on every query — DQL, `find()`, `findBy()`, eager associations and lazy proxies.
 
-If you use other bundles that extend Doctrine ORM with custom SQL walkers
-(e.g. Gedmo DoctrineExtensions, API Platform), register `FormulaDoctrineBundle`
-**last** in `config/bundles.php`:
-```
-php
-return [
-   // ... other bundles ...
-   Stof\DoctrineExtensionsBundle\StofDoctrineExtensionsBundle::class => ['all' => true],
-   Cryonighter\FormulaDoctrine\FormulaDoctrineBundle::class => ['all' => true], // ← last
-];
-```
-`FormulaDoctrineBundle` automatically detects and chains with any previously
-registered output walker, so both transformations are applied to every query.
-
-If another bundle is registered after `FormulaDoctrineBundle` and also sets a
-custom output walker globally, you may need to manually call
-`FormulaDoctrineConfigurator::configure()` in your application's bundle.
 
 ## Usage
 
