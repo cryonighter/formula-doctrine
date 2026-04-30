@@ -1,9 +1,9 @@
 {
     "name": "cryonighter/formula-doctrine",
     "type": "symfony-bundle",
-    "description": "Hibernate-style #[Formula] computed fields for Doctrine ORM entities",
+    "description": "Hibernate-style attribute #[Formula] computed fields for Doctrine ORM entities",
     "license": "MIT",
-    "keywords": ["doctrine", "orm", "formula", "computed", "symfony"],
+    "keywords": ["doctrine", "orm", "formula", "computed", "symfony", "hibernate"],
     "require": {
         "php": ">=8.2",
         "doctrine/orm": "^3.0",

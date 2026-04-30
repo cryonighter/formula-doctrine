@@ -86,6 +86,7 @@ abstract class OrmTestCase extends TestCase
 
         $rating = new Rating();
         $rating->product = $product;
+        $rating->stars = 0;
         $this->em->persist($rating);
 
         foreach ($prices as $price) {

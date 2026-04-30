@@ -9,6 +9,7 @@ use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\ORM\EntityManager;
@@ -202,7 +203,7 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertEqualsWithDelta(5.00, $viaFind->totalRevenue, 0.001);
     }
 
-    public function testFindRelationLazyLoadSingleEntity(): void
+    public function testRelationFindLazyLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
         $reviewId = $this->createReview($productId);
@@ -224,7 +225,7 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertCount(2, $this->queryLogger->getQueries());
     }
 
-    public function testDqlRelationEagerLoadSingleEntity(): void
+    public function testRelationDqlEagerLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
         $reviewId = $this->createReview($productId);
@@ -350,6 +351,7 @@ final class FormulaHydrationTest extends OrmTestCase
 
         $review = new Review();
         $review->product = $product;
+        $review->rating = rand(1, 5);
         $review->description = 'Test review';
 
         $this->em->persist($review);
@@ -359,6 +361,29 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->queryLogger->reset();
 
         return $review->id;
+    }
+
+    public function testFindRelationEntityEagerLoadSingleEntity(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Rating Product'), [40.00, 45.00]);
+        $this->createManyReviews($productId, [3, 4, 5]);
+
+        $found = $this->em->getRepository(Rating::class)->findOneBy(['product' => $productId]);
+
+        // Exactly 1 eagerly query via findOneBy
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
+        self::assertNotInstanceOf(Proxy::class, $found->product);
+
+        // The field values are correct
+        self::assertSame(2, $found->product->orderCount);
+        self::assertEqualsWithDelta(45.00, $found->product->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(85.00, $found->product->totalRevenue, 0.001);
+        self::assertEqualsWithDelta(4.00, $found->stars, 0.001);
+
+        // 1 request — Product has already been loaded, there are no additional requests
+        self::assertCount(1, $this->queryLogger->getQueries());
     }
 
     /**

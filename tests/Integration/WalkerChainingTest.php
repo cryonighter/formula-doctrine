@@ -11,7 +11,6 @@ use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Walker\AddCommentSqlWalker;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
-use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
