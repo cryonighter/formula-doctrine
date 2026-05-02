@@ -4,6 +4,7 @@ namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
+use Cryonighter\FormulaDoctrine\Query\Exec\FormulaSqlFinalizer;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
@@ -67,11 +68,15 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
                     ->createExecutor($query)
                     ->getSqlStatements();
 
-                return new SingleSelectSqlFinalizer($this->applyFormulas($sql, $ast));
+                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
+            } elseif (method_exists($previousWalker, 'walkSelectStatement')) {
+                $sql = $previousWalker->walkSelectStatement($ast);
+
+                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
             }
         }
 
-        return new SingleSelectSqlFinalizer($this->walkSelectStatement($ast));
+        return new FormulaSqlFinalizer($this->applyFormulas(parent::walkSelectStatement($ast), $ast));
     }
 
     public function walkSelectStatement(SelectStatement $ast): string
