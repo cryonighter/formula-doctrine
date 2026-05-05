@@ -2,63 +2,14 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
-use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
-use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
-use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
-use Doctrine\DBAL\Configuration as DbalConfiguration;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Events;
 use Doctrine\ORM\Exception\ORMException;
-use Doctrine\ORM\ORMSetup;
 use Doctrine\Persistence\Proxy;
 
 final class FormulaHydrationTest extends OrmTestCase
 {
-    protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
-    {
-        $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
-            paths: [__DIR__ . '/Fixture/Entity'],
-            isDevMode: true,
-        );
-
-        // Connecting FormulaDoctrineConfigurator directly, without Symfony
-        $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
-        $configurator = new FormulaDoctrineConfigurator($registry);
-        $configurator->configure($ormConfig);
-
-        $dbalConfig = new DbalConfiguration();
-        $dbalConfig->setMiddlewares([
-            new FormulaMiddleware($registry),
-            $queryLogger,
-        ]);
-
-        $em = new EntityManager(
-            $this->createConnection($dbalConfig),
-            $ormConfig,
-        );
-
-        $eventManager = $em->getEventManager();
-
-        $eventManager->addEventListener(
-            Events::loadClassMetadata,
-            new LoadClassMetadataListener($registry),
-        );
-
-        $eventManager->addEventListener(
-            'postGenerateSchema',
-            new PostGenerateSchemaListener($registry),
-        );
-
-        return $em;
-    }
-
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders
      */

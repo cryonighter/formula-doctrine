@@ -2,22 +2,29 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
+use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
+use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
+use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
+use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\TestCase;
 
-abstract class OrmTestCase extends TestCase
+class OrmTestCase extends TestCase
 {
     protected EntityManagerInterface $em;
     protected QueryLogger $queryLogger;
-
-    abstract protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface;
 
     protected function setUp(): void
     {
@@ -41,6 +48,46 @@ abstract class OrmTestCase extends TestCase
         unset($this->em);
     }
 
+    protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
+    {
+        $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
+            paths: [__DIR__ . '/Fixture/Entity'],
+            isDevMode: true,
+        );
+
+        $this->setDefaultQueryHint($ormConfig);
+
+        // Connecting FormulaDoctrineConfigurator directly, without Symfony
+        $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
+        $configurator = new FormulaDoctrineConfigurator($registry);
+        $configurator->configure($ormConfig);
+
+        $dbalConfig = new DbalConfiguration();
+        $dbalConfig->setMiddlewares([
+            new FormulaMiddleware($registry),
+            $queryLogger,
+        ]);
+
+        $em = new EntityManager(
+            $this->createConnection($dbalConfig),
+            $ormConfig,
+        );
+
+        $eventManager = $em->getEventManager();
+
+        $eventManager->addEventListener(
+            Events::loadClassMetadata,
+            new LoadClassMetadataListener($registry),
+        );
+
+        $eventManager->addEventListener(
+            'postGenerateSchema',
+            new PostGenerateSchemaListener($registry),
+        );
+
+        return $em;
+    }
+
     protected function createConnection(DbalConfiguration $configuration): Connection
     {
         return DriverManager::getConnection(
@@ -51,6 +98,11 @@ abstract class OrmTestCase extends TestCase
             ],
             $configuration,
         );
+    }
+
+    protected function setDefaultQueryHint(DbalConfiguration $ormConfig): void
+    {
+        // No-op
     }
 
     /**
