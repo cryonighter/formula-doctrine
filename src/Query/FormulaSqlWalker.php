@@ -53,6 +53,31 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
+        $query = $this->getQuery();
+
+        // Delegate to the previously registered walker if present
+        $previousWalkerClass = $query->getHint(self::HINT_PREVIOUS_WALKER);
+
+        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
+            try {
+                $previousWalker = $this->createDelegateWalker($previousWalkerClass);
+
+                if ($previousWalker instanceof OutputWalker) {
+                    $sql = $previousWalker->getFinalizer($ast)
+                        ->createExecutor($query)
+                        ->getSqlStatements();
+
+                    return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
+                } elseif (method_exists($previousWalker, 'walkSelectStatement')) {
+                    $sql = $previousWalker->walkSelectStatement($ast);
+
+                    return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
+                }
+            } catch (Throwable) {
+                // Ignore errors, fall back to our own walker
+            }
+        }
+
         if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
             return new PreparedExecutorFinalizer(
                 match (true) {
@@ -63,27 +88,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         }
 
         assert($ast instanceof SelectStatement);
-
-        $query = $this->getQuery();
-
-        // Delegate to the previously registered walker if present
-        $previousWalkerClass = $query->getHint(self::HINT_PREVIOUS_WALKER);
-
-        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
-            $previousWalker = $this->createDelegateWalker($previousWalkerClass);
-
-            if ($previousWalker instanceof OutputWalker) {
-                $sql = $previousWalker->getFinalizer($ast)
-                    ->createExecutor($query)
-                    ->getSqlStatements();
-
-                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
-            } elseif (method_exists($previousWalker, 'walkSelectStatement')) {
-                $sql = $previousWalker->walkSelectStatement($ast);
-
-                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
-            }
-        }
 
         return new FormulaSqlFinalizer($this->applyFormulas(parent::walkSelectStatement($ast), $ast));
     }
