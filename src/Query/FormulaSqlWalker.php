@@ -11,7 +11,7 @@ use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
-use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
+use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
@@ -53,6 +53,15 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
+        if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
+            return new PreparedExecutorFinalizer(
+                match (true) {
+                    $ast instanceof UpdateStatement => $this->createUpdateStatementExecutor($ast),
+                    $ast instanceof DeleteStatement => $this->createDeleteStatementExecutor($ast),
+                },
+            );
+        }
+
         assert($ast instanceof SelectStatement);
 
         $query = $this->getQuery();
