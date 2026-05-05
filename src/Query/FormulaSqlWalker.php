@@ -11,10 +11,12 @@ use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
+use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
 use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
+use ReflectionException;
 use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionProperty;
@@ -53,43 +55,51 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
-        $query = $this->getQuery();
+        try {
+            // Delegate to the previously registered walker if present
+            $previousWalker = $this->getPreviousWalkerClass();
 
-        // Delegate to the previously registered walker if present
-        $previousWalkerClass = $query->getHint(self::HINT_PREVIOUS_WALKER);
-
-        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
-            try {
-                $previousWalker = $this->createDelegateWalker($previousWalkerClass);
-
+            if ($previousWalker) {
                 if ($previousWalker instanceof OutputWalker) {
-                    $sql = $previousWalker->getFinalizer($ast)
-                        ->createExecutor($query)
+                    $previousFinalizer = $previousWalker->getFinalizer($ast);
+
+                    if ($ast instanceof DeleteStatement || $ast instanceof UpdateStatement) {
+                        return $previousFinalizer;
+                    }
+
+                    $sql = $previousFinalizer->createExecutor($this->getQuery())
                         ->getSqlStatements();
 
                     return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
-                } elseif (method_exists($previousWalker, 'walkSelectStatement')) {
-                    $sql = $previousWalker->walkSelectStatement($ast);
-
-                    return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
                 }
-            } catch (Throwable) {
-                // Ignore errors, fall back to our own walker
+
+                $sql = $ast->dispatch($previousWalker);
+
+                if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
+                    return new PreparedExecutorFinalizer($this->resolveExecutor($ast, $previousWalker));
+                }
+
+                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
             }
+        } catch (Throwable) {
+            // Ignore errors, fall back to our own walker
         }
 
         if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
-            return new PreparedExecutorFinalizer(
-                match (true) {
-                    $ast instanceof UpdateStatement => $this->createUpdateStatementExecutor($ast),
-                    $ast instanceof DeleteStatement => $this->createDeleteStatementExecutor($ast),
-                },
-            );
+            return new PreparedExecutorFinalizer($this->resolveExecutor($ast, $this));
         }
 
         assert($ast instanceof SelectStatement);
 
         return new FormulaSqlFinalizer($this->applyFormulas(parent::walkSelectStatement($ast), $ast));
+    }
+
+    private function resolveExecutor(DeleteStatement|UpdateStatement $ast, SqlWalker $walker): AbstractSqlExecutor
+    {
+        return match (true) {
+            $ast instanceof UpdateStatement => $walker->createUpdateStatementExecutor($ast),
+            $ast instanceof DeleteStatement => $walker->createDeleteStatementExecutor($ast),
+        };
     }
 
     public function walkSelectStatement(SelectStatement $ast): string
@@ -214,28 +224,43 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
+     * Retrieves the previously registered walker class from the query hint.
+     * If the hint is not set or is the current walker class, returns null.
+     *
+     * @throws ReflectionException
+     */
+    private function getPreviousWalkerClass(): SqlWalker|OutputWalker|null
+    {
+        $previousWalkerClass = $this->getQuery()->getHint(self::HINT_PREVIOUS_WALKER);
+
+        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
+            return $this->createPreviousWalker($previousWalkerClass);
+        }
+
+        return null;
+    }
+
+    /**
      * Instantiates the previous walker by reusing our own constructor arguments.
      * Reads the target constructor's parameter names via reflection and maps them
      * to the corresponding properties of the current instance (inherited from SqlWalker).
+     *
+     * @throws ReflectionException
      */
-    private function createDelegateWalker(string $walkerClass): ?SqlWalker
+    private function createPreviousWalker(string $walkerClass): SqlWalker|OutputWalker
     {
-        try {
-            $constructor = new ReflectionMethod($walkerClass, '__construct');
+        $constructor = new ReflectionMethod($walkerClass, '__construct');
 
-            $args = array_map(
-                function (ReflectionParameter $param): mixed {
-                    $reflectionProperty = new ReflectionProperty(SqlWalker::class, $param->getName());
+        $args = array_map(
+            function (ReflectionParameter $param) use ($walkerClass): mixed {
+                $reflectionProperty = new ReflectionProperty(SqlWalker::class, $param->getName());
 
-                    return $reflectionProperty->getValue($this);
-                },
-                $constructor->getParameters(),
-            );
+                return $reflectionProperty->getValue($this);
+            },
+            $constructor->getParameters(),
+        );
 
-            return new $walkerClass(...$args);
-        } catch (Throwable) {
-            return null;
-        }
+        return new $walkerClass(...$args);
     }
 
     /**
