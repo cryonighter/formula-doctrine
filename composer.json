@@ -4,7 +4,7 @@
     "description": "Hibernate-style attribute #[Formula] computed fields for Doctrine ORM entities",
     "homepage": "https://github.com/cryonighter/formula-doctrine",
     "license": "MIT",
-    "keywords": ["doctrine", "orm", "formula", "computed", "symfony", "hibernate"],
+    "keywords": ["doctrine", "orm", "formula", "virtual", "generated", "computed", "symfony", "hibernate"],
     "version": "1.0.2",
     "authors": [
         {
@@ -18,7 +18,8 @@
         "doctrine/dbal": "^4.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^9.0",
+        "symfony/cache": "^7.4"
     },
     "autoload": {
         "psr-4": {
