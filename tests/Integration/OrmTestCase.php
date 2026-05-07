@@ -20,6 +20,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 class OrmTestCase extends TestCase
 {
@@ -29,7 +30,7 @@ class OrmTestCase extends TestCase
     protected function setUp(): void
     {
         $this->queryLogger = new QueryLogger();
-        $this->em = $this->createEntityManager($this->queryLogger);
+        $this->em = $this->createEntityManager($this->queryLogger, false);
         $this->createSchema();
     }
 
@@ -48,14 +49,32 @@ class OrmTestCase extends TestCase
         unset($this->em);
     }
 
-    protected function createEntityManager(QueryLogger $queryLogger): EntityManagerInterface
+    protected function createEntityManager(QueryLogger $queryLogger, bool $useCache): EntityManagerInterface
     {
         $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
             paths: [__DIR__ . '/Fixture/Entity'],
-            isDevMode: true,
+            isDevMode: !$useCache, // In prod mode, the cache works more actively
         );
 
         $this->setDefaultQueryHint($ormConfig);
+
+        if ($useCache) {
+            $ormConfig->setMetadataCache(
+                new FilesystemAdapter(
+                    namespace: 'doctrine_metadata',
+                    defaultLifetime: 0,
+                    directory: __DIR__ . '/cache/doctrine'
+                ),
+            );
+
+            $ormConfig->setQueryCache(
+                new FilesystemAdapter(
+                    namespace: 'doctrine_queries',
+                    defaultLifetime: 0,
+                    directory: __DIR__ . '/cache/doctrine'
+                ),
+            );
+        }
 
         // Connecting FormulaDoctrineConfigurator directly, without Symfony
         $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
@@ -64,8 +83,8 @@ class OrmTestCase extends TestCase
 
         $dbalConfig = new DbalConfiguration();
         $dbalConfig->setMiddlewares([
+            $queryLogger, // Must be first middleware
             new FormulaMiddleware($registry),
-            $queryLogger,
         ]);
 
         $em = new EntityManager(
