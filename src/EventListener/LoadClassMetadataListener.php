@@ -65,11 +65,11 @@ final readonly class LoadClassMetadataListener
             return false;
         }
 
-        if ($fieldMapping->nullable !== $formulaMetadata->nullable) {
+        if (($fieldMapping->nullable ?? false) !== $formulaMetadata->nullable) {
             return false;
         }
 
-        if ($fieldMapping->notInsertable === false || $fieldMapping->notUpdatable === false) {
+        if (($fieldMapping->notInsertable ?? false) === false || ($fieldMapping->notUpdatable ?? false) === false) {
             return false;
         }
 

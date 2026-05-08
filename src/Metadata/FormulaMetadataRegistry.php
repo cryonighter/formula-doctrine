@@ -18,9 +18,24 @@ final class FormulaMetadataRegistry
      */
     private array $scanned = [];
 
+    /**
+     * @var array<class-string, string>
+     */
+    private array $tableNames = [];
+
     public function __construct(
         private readonly FormulaMetadataFactory $factory,
     ) {}
+
+    /**
+     * Returns all formula metadata for a given class.
+     *
+     * @return array<FormulaMetadata>
+     */
+    public function getMetadata(): array
+    {
+        return $this->metadata;
+    }
 
     /**
      * Returns all class names that have been scanned so far.
@@ -74,5 +89,15 @@ final class FormulaMetadataRegistry
         }
 
         return null;
+    }
+
+    public function getTableNameForClass(string $className): ?string
+    {
+        return $this->tableNames[$className] ?? null;
+    }
+
+    public function setTableNameForClass(string $className, string $tableName): void
+    {
+        $this->tableNames[$className] = $tableName;
     }
 }

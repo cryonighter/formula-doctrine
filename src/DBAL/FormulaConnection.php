@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Middleware\AbstractConnectionMiddleware;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
+use RuntimeException;
 
 /**
  * Intercepts SQL statements before execution and replaces formula column
@@ -58,15 +59,15 @@ final class FormulaConnection extends AbstractConnectionMiddleware
 
         $tableAliases = $this->extractTableAliases($sql);
 
-        foreach ($tableAliases as $alias) {
-            foreach ($formulaAliases as $columnAlias => $meta) {
-                $columnRef = "$alias.$columnAlias";
+        foreach ($tableAliases as $tableName => $tableAlias) {
+            foreach ($formulaAliases[$tableName] ?? [] as $columnAlias => $meta) {
+                $columnRef = "$tableAlias.$columnAlias";
 
                 if (!str_contains($sql, $columnRef)) {
                     continue;
                 }
 
-                $resolvedSql = str_replace('{this}', $alias, $meta->sql);
+                $resolvedSql = str_replace('{this}', $tableAlias, $meta->sql);
                 $sql = str_replace($columnRef, $resolvedSql, $sql);
             }
         }
@@ -80,30 +81,45 @@ final class FormulaConnection extends AbstractConnectionMiddleware
      * BasicEntityPersister generates aliases like t0, t1, t2, t4 etc.
      * Pattern matches: "FROM table_name tN" and "JOIN table_name tN"
      *
-     * @return array<string>
+     * @return array<string, string> Map of table names to their aliases
      */
     private function extractTableAliases(string $sql): array
     {
         // Matches: FROM/JOIN <table_name> <alias>
         // Alias pattern: t followed by one or more digits (t0, t1, t4, t10...)
-        preg_match_all('/(?:FROM|JOIN)\s+\w+\s+(t\d+)/i', $sql, $matches);
+        preg_match_all('/(?:FROM|JOIN)\s+(\w+)\s+(t\d+)/i', $sql, $matches);
 
-        return array_unique($matches[1] ?? []);
+        if (empty($matches[1])) {
+            return [];
+        }
+
+        return array_combine($matches[1], $matches[2]);
     }
 
     /**
      * Collects all formula metadata from all scanned classes,
-     * indexed by column alias.
+     * indexed by table name and column alias.
      *
-     * @return array<string, FormulaMetadata>
+     * @return array<string, array<string, FormulaMetadata>>
      */
     private function getFormulaAliases(): array
     {
         $result = [];
 
-        foreach ($this->registry->getScannedClasses() as $className) {
-            foreach ($this->registry->getForClass($className) as $meta) {
-                $result[$meta->alias] = $meta;
+        foreach ($this->registry->getMetadata() as $className => $formulas) {
+            $tableName = $this->registry->getTableNameForClass($className);
+
+            if (!$tableName) {
+                throw new RuntimeException(sprintf('Table name not found for class "%s".', $className));
+            }
+
+            // Different classes can be bound to the same table, for example with #[ORM\InheritanceType('SINGLE_TABLE')]
+            if (!isset($result[$tableName])) {
+                $result[$tableName] = [];
+            }
+
+            foreach ($formulas as $meta) {
+                $result[$tableName][$meta->alias] = $meta;
             }
         }
 

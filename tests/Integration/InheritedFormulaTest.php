@@ -2,24 +2,26 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\FormulaJoinedProduct;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\JoinedProduct;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\OrderItem;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Rating;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Review;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
-final class FormulaHydrationTest extends OrmTestCase
+final class InheritedFormulaTest extends OrmTestCase
 {
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders
      */
     public function testDqlSingleEntityFormulaFieldDefaultsWhenNoOrders(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Empty Product'),
+        $productId = $this->createJoinedProductWithOrderItems(
+            $this->makeFormulaJoinedProduct('Empty Product'),
         );
 
-        $result = $this->getProduct($productId);
+        $result = $this->getFormulaJoinedProduct($productId);
 
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -35,12 +37,12 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testDqlSingleEntityFormulaFieldValuesIsCorrect(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Popular Product'),
+        $productId = $this->createJoinedProductWithOrderItems(
+            $this->makeFormulaJoinedProduct('Popular Product'),
             [10.00, 20.00, 30.00],
         );
 
-        $result = $this->getProduct($productId);
+        $result = $this->getFormulaJoinedProduct($productId);
 
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -58,15 +60,15 @@ final class FormulaHydrationTest extends OrmTestCase
     public function testDqlUsesOneQueryWithSubqueriesAndLimit(): void
     {
         // Creating 3 products with different number of orders
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00]);
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 1'), [10.00]);
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 2'), [20.00, 30.00]);
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 3'));
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 4'));
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 5'), [40.00]);
 
         // One SELECT should return all 3 products with formulas
         $products = $this->em
-            ->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.id ASC')
+            ->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p ORDER BY p.id ASC')
             ->setFirstResult(0)
             ->setMaxResults(3)
             ->getResult();
@@ -94,12 +96,12 @@ final class FormulaHydrationTest extends OrmTestCase
     public function testFindAllUsesOneQueryWithSubqueries(): void
     {
         // Creating 3 products with different number of orders
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [30.00, 40.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 1'), [20.00]);
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 2'), [30.00, 40.00]);
+        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 3'));
 
         // One SELECT should return all 3 products with formulas
-        $products = $this->em->getRepository(Product::class)->findAll();
+        $products = $this->em->getRepository(FormulaJoinedProduct::class)->findAll();
 
         // Returned the required amount of products
         self::assertCount(3, $products);
@@ -118,9 +120,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFindSingleEntityUsesOneQuery(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Find Product'), [10.00, 20.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Find Product'), [10.00, 20.00]);
 
-        $found = $this->em->find(Product::class, $productId);
+        $found = $this->em->find(FormulaJoinedProduct::class, $productId);
 
         // Exactly 1 query via find()
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -136,17 +138,17 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFindAfterDqlUsesIdentityMapNoExtraQuery(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Identity Map Product'), [5.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Identity Map Product'), [5.00]);
 
         // First we load via DQL - Walker works
-        $viaDql = $this->getProduct($productId);
+        $viaDql = $this->getFormulaJoinedProduct($productId);
 
         self::assertSame(1, $viaDql->orderCount);
 
         $this->queryLogger->reset();
 
         // find() should return object from Identity Map without extra queries
-        $viaFind = $this->em->find(Product::class, $productId);
+        $viaFind = $this->em->find(FormulaJoinedProduct::class, $productId);
 
         self::assertSame($viaDql, $viaFind);
 
@@ -159,31 +161,43 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertEqualsWithDelta(5.00, $viaFind->totalRevenue, 0.001);
     }
 
+    /**
+     * Test that a single entity can be found lazily via a relation
+     *
+     * With JOINED inheritance, Doctrine cannot create a proxy and loads eagerly
+     *
+     * @see https://github.com/doctrine/orm/issues/3509
+     * Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerlyhttps://github.com/doctrine/orm/issues/3509
+     * // "Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerly"
+     */
     public function testRelationFindLazyLoadSingleEntity(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Reviewed Product'), [30.00, 40.00]);
         $reviewId = $this->createReview($productId);
 
         $found = $this->em->find(Review::class, $reviewId);
 
         // Exactly 1 query via find()
-        self::assertCount(1, $this->queryLogger->getQueries());
+        self::assertCount(2, $this->queryLogger->getQueries());
 
-        // Verify that product is a Doctrine proxy (not yet loaded)
-        self::assertInstanceOf(Proxy::class, $found->product);
+        // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
+        self::assertNotInstanceOf(Proxy::class, $found->product);
 
-        // The field values are correct (product loaded via lazy load)
+        // The field values are correct (already loaded eagerly)
         self::assertSame(2, $found->product->orderCount);
         self::assertEqualsWithDelta(40.00, $found->product->maxItemPrice, 0.001);
         self::assertEqualsWithDelta(70.00, $found->product->totalRevenue, 0.001);
 
-        // 2 requests - find Review and lazy load Product
+        // 2 request — Product has already been loaded, there are no additional requests
         self::assertCount(2, $this->queryLogger->getQueries());
     }
 
+    /**
+     * Test eager loading of a single entity with a formula field using DQL
+     */
     public function testRelationDqlEagerLoadSingleEntity(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Reviewed Product'), [35.00, 45.00]);
         $reviewId = $this->createReview($productId);
 
         $found = $this->em->createQuery('SELECT r, p FROM ' . Review::class . ' r JOIN r.product p WHERE r.id = :id')
@@ -210,9 +224,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFormulaFieldsAreNotPersistedOnFlush(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Persist Test'), [50.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Persist Test'), [50.00]);
 
-        $loaded = $this->getProduct($productId);
+        $loaded = $this->getFormulaJoinedProduct($productId);
 
         // The field values loaded are correct
         self::assertSame('Persist Test', $loaded->name);
@@ -227,7 +241,7 @@ final class FormulaHydrationTest extends OrmTestCase
         // Check that flush did not break due to formula fields
         $this->em->clear();
 
-        $reloaded = $this->getProduct($productId);
+        $reloaded = $this->getFormulaJoinedProduct($productId);
 
         // The field values reloaded are correct
         self::assertSame('Updated Name', $reloaded->name);
@@ -241,9 +255,9 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFormulaFieldChangeDoesNotTriggerUpdate(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('No Update Test'));
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('No Update Test'));
 
-        $loaded = $this->getProduct($productId);
+        $loaded = $this->getFormulaJoinedProduct($productId);
 
         // Changing the formula field
         $loaded->orderCount = 999;
@@ -252,7 +266,7 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->em->flush();
         $this->em->clear();
 
-        $reloaded = $this->getProduct($productId);
+        $reloaded = $this->getFormulaJoinedProduct($productId);
 
         // After reloading, the value is recalculated from the database (0, no orders)
         self::assertSame(0, $reloaded->orderCount);
@@ -265,11 +279,11 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testFormulaFieldUpdatedWhenRefresh(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('No Update Test'), [15.00, 25.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('No Update Test'), [15.00, 25.00]);
 
-        $loaded = $this->getProduct($productId);
+        $loaded = $this->getFormulaJoinedProduct($productId);
 
-        $this->em->persist($this->makeOrderItem($loaded, 35.00));
+        $this->em->persist($this->makeJoinedOrderItem($loaded, 35.00));
         $this->em->flush();
         $this->em->refresh($loaded);
 
@@ -284,10 +298,10 @@ final class FormulaHydrationTest extends OrmTestCase
      */
     public function testDqlFormulasWorkOnRepeatedQueryExecution(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('RSM Cache Test'), [10.00, 20.00]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('RSM Cache Test'), [10.00, 20.00]);
 
         for ($i = 0; $i < 5; $i++) {
-            $loaded = $this->getProduct($productId);
+            $loaded = $this->getFormulaJoinedProduct($productId);
 
             self::assertSame(2, $loaded->orderCount);
             self::assertEqualsWithDelta(20.00, $loaded->maxItemPrice, 0.001);
@@ -303,7 +317,7 @@ final class FormulaHydrationTest extends OrmTestCase
     private function createReview(int $productId): int
     {
         // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(Product::class, $productId);
+        $product = $this->em->find(JoinedProduct::class, $productId);
 
         $review = new Review();
         $review->product = $product;
@@ -319,15 +333,19 @@ final class FormulaHydrationTest extends OrmTestCase
         return $review->id;
     }
 
+    /**
+     * Test eager loading of a single entity with a relation to a formula entity.
+     * For merged entities, loading occurs in 2 requests, but immediately, without accessing the related entity.
+     */
     public function testFindRelationEntityEagerLoadSingleEntity(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Rating Product'), [40.00, 45.00]);
-        $this->createManyReviews($productId, [3, 4, 5]);
+        $productId = $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Rating Product'), [40.00, 45.00]);
+        $this->createManyJoinedReviews($productId, [3, 4, 5]);
 
         $found = $this->em->getRepository(Rating::class)->findOneBy(['product' => $productId]);
 
-        // Exactly 1 eagerly query via findOneBy
-        self::assertCount(1, $this->queryLogger->getQueries());
+        // Exactly 2 eagerly query via findOneBy
+        self::assertCount(2, $this->queryLogger->getQueries());
 
         // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
         self::assertNotInstanceOf(Proxy::class, $found->product);
@@ -338,17 +356,41 @@ final class FormulaHydrationTest extends OrmTestCase
         self::assertEqualsWithDelta(85.00, $found->product->totalRevenue, 0.001);
         self::assertEqualsWithDelta(4.00, $found->stars, 0.001);
 
-        // 1 request — Product has already been loaded, there are no additional requests
-        self::assertCount(1, $this->queryLogger->getQueries());
+        // 2 request — Product has already been loaded, there are no additional requests
+        self::assertCount(2, $this->queryLogger->getQueries());
+    }
+
+    /**
+     * Helper method to create a product entity
+     */
+    protected function makeFormulaJoinedProduct(string $name): FormulaJoinedProduct
+    {
+        $product = new FormulaJoinedProduct();
+        $product->name = $name;
+
+        return $product;
+    }
+
+    /**
+     * Helper method to create an order item entity
+     */
+    protected function makeJoinedOrderItem(JoinedProduct $product, float $price): OrderItem
+    {
+        $item = new OrderItem();
+        $item->product = $product;
+        $item->price = (string) $price;
+        $item->quantity = 1;
+
+        return $item;
     }
 
     /**
      * Helper method to create multiple reviews for a product
      */
-    private function createManyReviews(int $productId, array $ratings): void
+    private function createManyJoinedReviews(int $productId, array $ratings): void
     {
         // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(Product::class, $productId);
+        $product = $this->em->find(JoinedProduct::class, $productId);
 
         foreach ($ratings as $rating) {
             $review = new Review();
@@ -363,5 +405,40 @@ final class FormulaHydrationTest extends OrmTestCase
         $this->em->clear();
 
         $this->queryLogger->reset();
+    }
+
+    /**
+     * Helper method to persist product and order items for him
+     */
+    protected function createJoinedProductWithOrderItems(JoinedProduct $product, array $prices = []): int
+    {
+        $this->em->persist($product);
+        $this->em->persist(new Rating($product));
+
+        foreach ($prices as $price) {
+            $this->em->persist($this->makeJoinedOrderItem($product, $price));
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+
+        return $product->id;
+    }
+
+    /**
+     * Helper method for load a product by ID via DQL
+     */
+    protected function getFormulaJoinedProduct(int $id): FormulaJoinedProduct
+    {
+        $product = $this->em
+            ->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p WHERE p.id = :id')
+            ->setParameter('id', $id)
+            ->getSingleResult();
+
+        self::assertInstanceOf(FormulaJoinedProduct::class, $product);
+
+        return $product;
     }
 }

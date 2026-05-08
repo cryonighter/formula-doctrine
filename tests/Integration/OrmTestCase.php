@@ -6,6 +6,7 @@ use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
+use Cryonighter\FormulaDoctrine\Mapping\FormulaDoctrineClassMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
@@ -75,6 +76,9 @@ class OrmTestCase extends TestCase
                 ),
             );
         }
+
+        // Use custom metadata factory
+        $ormConfig->setClassMetadataFactoryName(FormulaDoctrineClassMetadataFactory::class);
 
         // Connecting FormulaDoctrineConfigurator directly, without Symfony
         $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());

@@ -35,7 +35,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
-        ]);
+        ], 'customers');
 
         $sql = 'SELECT t0.id AS id_1, t0.name AS name_2 FROM customers t0 WHERE t0.id = ?';
 
@@ -48,7 +48,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
-        ]);
+        ], 'customers');
 
         // No "t0." in the SQL — fast path
         $sql = 'SELECT 1';
@@ -73,7 +73,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
-        ]);
+        ], 'products');
 
         $sql = 'SELECT t0.id AS id_1, t0.name AS name_2, t0.orderCount AS orderCount_3 FROM products t0 WHERE t0.id = ?';
 
@@ -93,7 +93,7 @@ final class FormulaConnectionTest extends TestCase
         $this->seedRegistry([
             $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
             $this->makeMeta('totalRevenue', '(SELECT COALESCE(SUM(oi.price), 0) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.customer_id = {this}.id)'),
-        ]);
+        ], 'customers');
 
         $sql = 'SELECT t0.id AS id_1, t0.orderCount AS orderCount_2, t0.totalRevenue AS totalRevenue_3 FROM customers t0';
 
@@ -111,7 +111,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('orderCount', '(SELECT COUNT(*) FROM orders o WHERE o.customer_id = {this}.id)'),
-        ]);
+        ], 'customers');
 
         $sql = 'SELECT t0.id AS id_1, t0.orderCount AS orderCount_2 FROM customers t0';
 
@@ -127,7 +127,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('score', '(SELECT SUM(p.points) FROM points p WHERE p.user_id = {this}.id)'),
-        ]);
+        ], 'users');
 
         $sql = 'SELECT t0.id AS id_1, t0.score AS score_2 FROM users t0 WHERE t0.active = 1 AND t0.id = ?';
 
@@ -141,7 +141,7 @@ final class FormulaConnectionTest extends TestCase
     {
         $this->seedRegistry([
             $this->makeMeta('maxPrice', '(SELECT MAX(oi.price) FROM order_items oi WHERE oi.product_id = {this}.id)', nullable: true),
-        ]);
+        ], 'products');
 
         $sql = 'SELECT t0.id AS id_1, t0.maxPrice AS maxPrice_2 FROM products t0';
 
@@ -177,15 +177,17 @@ final class FormulaConnectionTest extends TestCase
      *
      * @param array<FormulaMetadata> $metadataList
      */
-    private function seedRegistry(array $metadataList): void
+    private function seedRegistry(array $metadataList, string $tableName = ''): void
     {
         $prop = new ReflectionProperty(FormulaMetadataRegistry::class, 'metadata');
         $scanned = new ReflectionProperty(FormulaMetadataRegistry::class, 'scanned');
+        $tableNames = new ReflectionProperty(FormulaMetadataRegistry::class, 'tableNames');
 
         $className = 'FakeEntity_' . uniqid();
 
         $prop->setValue($this->registry, [$className => $metadataList]);
         $scanned->setValue($this->registry, [$className => true]);
+        $tableNames->setValue($this->registry, [$className => $tableName]);
     }
 
     private function makeMeta(
