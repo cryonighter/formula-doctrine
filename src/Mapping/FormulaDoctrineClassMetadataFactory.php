@@ -5,10 +5,9 @@ namespace  Cryonighter\FormulaDoctrine\Mapping;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping\ClassMetadataFactory;
 use Doctrine\ORM\Mapping\ClassMetadata;
 
-class FormulaDoctrineClassMetadataFactory extends ClassMetadataFactory
+class FormulaDoctrineClassMetadataFactory extends ChainingClassMetadataFactory
 {
     private FormulaMetadataRegistry $registry;
 
@@ -16,8 +15,9 @@ class FormulaDoctrineClassMetadataFactory extends ClassMetadataFactory
     {
         parent::setEntityManager($em);
 
-        $this->registry = $em->getConfiguration()
-            ->getDefaultQueryHint(FormulaSqlWalker::HINT_REGISTRY);
+        $configuration = $em->getConfiguration();
+
+        $this->registry = $configuration->getDefaultQueryHint(FormulaSqlWalker::HINT_REGISTRY);
     }
 
     public function getMetadataFor(string $className): ClassMetadata

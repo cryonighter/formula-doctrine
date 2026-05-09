@@ -77,9 +77,6 @@ class OrmTestCase extends TestCase
             );
         }
 
-        // Use custom metadata factory
-        $ormConfig->setClassMetadataFactoryName(FormulaDoctrineClassMetadataFactory::class);
-
         // Connecting FormulaDoctrineConfigurator directly, without Symfony
         $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
         $configurator = new FormulaDoctrineConfigurator($registry);

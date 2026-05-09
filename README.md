@@ -357,7 +357,7 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 ./vendor/bin/phpunit --testsuite Integration
 
 # Specific file
-./vendor/bin/phpunit tests/Unit/Query/FormulaSqlWalkerAliasTest.php
+./vendor/bin/phpunit tests/Unit/DBAL/FormulaConnectionTest.php
 
 # With coating (requires Xdebug or PCOV)
 ./vendor/bin/phpunit --coverage-text
