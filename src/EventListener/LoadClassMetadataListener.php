@@ -32,6 +32,10 @@ final readonly class LoadClassMetadataListener
         $className = $classMetadata->getName();
         $formulas = $this->registry->getForClass($className);
 
+        // Save the table name for FormulaConnection to use
+        // It may be needed before similar code in FormulaDoctrineClassMetadataFactory is executed
+        $this->registry->setTableNameForClass($className, $classMetadata->getTableName());
+
         foreach ($formulas as $meta) {
             if ($classMetadata->hasField($meta->propertyName)) {
                 $fieldMapping = $classMetadata->getFieldMapping($meta->propertyName);

@@ -5,8 +5,8 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity;
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use Doctrine\ORM\Mapping as ORM;
 
+// No table name
 #[ORM\Entity]
-#[ORM\Table(name: 'ratings')]
 class Rating
 {
     #[ORM\Id]

@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.1.2] - 2026-05-11
+### Fixed
+- Bug with loading table names
+
 ## [1.1.1] - 2026-05-09
 ### Added
 - Support for class metadata factories chaining
@@ -34,4 +38,5 @@ This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 [1.0.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.0.1
 [1.0.2]: https://github.com/cryonighter/formula-doctrine/tree/v1.0.2
 [1.1.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.0
-[1.1.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.1
+[1.1.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.1
+[1.1.2]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.2

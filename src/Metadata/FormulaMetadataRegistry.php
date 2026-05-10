@@ -58,7 +58,12 @@ final class FormulaMetadataRegistry
     public function getForClass(string $className): array
     {
         if (!isset($this->scanned[$className])) {
-            $this->metadata[$className] = $this->factory->createForClass($className);
+            $meta = $this->factory->createForClass($className);
+
+            if ($meta) {
+                $this->metadata[$className] = $meta;
+            }
+
             $this->scanned[$className] = true;
         }
 
