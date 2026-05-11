@@ -6,7 +6,6 @@ use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
-use Cryonighter\FormulaDoctrine\Mapping\FormulaDoctrineClassMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;

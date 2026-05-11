@@ -14,12 +14,13 @@ final class PaginationQueryTest extends OrmTestCase
         $this->createManyProduct();
 
         $limit = 3;
+        $offset = 2;
 
-        $result = $this->em->createQueryBuilder()
+        $resultOne = $this->em->createQueryBuilder()
             ->select('p')
             ->from(Product::class, 'p')
             ->setMaxResults($limit)
-            ->setFirstResult(2)
+            ->setFirstResult($offset)
             ->getQuery()
             ->getResult();
 
@@ -27,12 +28,32 @@ final class PaginationQueryTest extends OrmTestCase
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // Returned the required amount of products
-        self::assertCount($limit, $result);
+        self::assertCount($limit, $resultOne);
 
         // The field values are correct
-        self::assertSame('Product 3', $result[0]->name);
-        self::assertSame('Product 4', $result[1]->name);
-        self::assertSame('Product 5', $result[2]->name);
+        self::assertSame('Product 3', $resultOne[0]->name);
+        self::assertSame('Product 4', $resultOne[1]->name);
+        self::assertSame('Product 5', $resultOne[2]->name);
+
+        $this->queryLogger->reset();
+
+        $resultTwo = $this->em->createQueryBuilder()
+            ->select('p')
+            ->from(Product::class, 'p')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset + 2)
+            ->getQuery()
+            ->getResult();
+
+        // Exactly 1 query - all formulas in one SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Returned the required amount of products
+        self::assertCount(2, $resultTwo);
+
+        // The field values are correct
+        self::assertSame('Product 5', $resultTwo[0]->name);
+        self::assertSame('Product 6', $resultTwo[1]->name);
     }
 
     public function createManyProduct(): void

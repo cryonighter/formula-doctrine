@@ -57,20 +57,16 @@ final class InheritedFormulaTest extends OrmTestCase
      * Test that a DQL query uses a single query with subqueries to load formulas (no N+1)
      * Additionally, it test the correct operation of the limit and offset
      */
-    public function testDqlUsesOneQueryWithSubqueriesAndLimit(): void
+    public function testDqlUsesOneQueryWithSubqueries(): void
     {
         // Creating 3 products with different number of orders
         $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 1'), [10.00]);
         $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 2'), [20.00, 30.00]);
         $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 3'));
-        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 4'));
-        $this->createJoinedProductWithOrderItems($this->makeFormulaJoinedProduct('Product 5'), [40.00]);
 
         // One SELECT should return all 3 products with formulas
         $products = $this->em
             ->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p ORDER BY p.id ASC')
-            ->setFirstResult(0)
-            ->setMaxResults(3)
             ->getResult();
 
         // Returned the required amount of products

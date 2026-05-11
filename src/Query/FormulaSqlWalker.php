@@ -4,15 +4,15 @@ namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
-use Cryonighter\FormulaDoctrine\Query\Exec\FormulaSqlFinalizer;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
+use Doctrine\ORM\Query\Exec\FinalizedSelectExecutor;
 use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
+use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
@@ -68,19 +68,30 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
                         return $previousFinalizer;
                     }
 
+                    // instanceof cannot be used because the finalizer can inherit it and implement different logic
+                    if ($previousFinalizer::class == SingleSelectSqlFinalizer::class) {
+                        $sql = (new ReflectionProperty(SingleSelectSqlFinalizer::class, 'sql'))->getValue($previousFinalizer);
+
+                        return new SingleSelectSqlFinalizer($this->applyFormulas($sql, $ast));
+                    }
+
+                    // This isn't entirely correct. If the final query contains LIMIT/OFFSET, they will be cached
+                    // and pagination won't work. But we won't resolve custom finalizers any other way.
                     $sql = $previousFinalizer->createExecutor($this->getQuery())
                         ->getSqlStatements();
 
-                    return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
+                    return new PreparedExecutorFinalizer(new FinalizedSelectExecutor($this->applyFormulas($sql, $ast)));
                 }
-
-                $sql = $ast->dispatch($previousWalker);
 
                 if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
                     return new PreparedExecutorFinalizer($this->resolveExecutor($ast, $previousWalker));
                 }
 
-                return new FormulaSqlFinalizer($this->applyFormulas($sql, $ast));
+                // We assume that the author of this walker understands how vulkers in Doctrine ORM
+                // are arranged and implemented his logic here, and not in walkSelectStatement()
+                $sql = $this->applyFormulas($previousWalker->createSqlForFinalizer($ast), $ast);
+
+                return new PreparedExecutorFinalizer(new FinalizedSelectExecutor($sql));
             }
         } catch (Throwable) {
             // Ignore errors, fall back to our own walker
@@ -92,7 +103,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
         assert($ast instanceof SelectStatement);
 
-        return new FormulaSqlFinalizer($this->applyFormulas(parent::walkSelectStatement($ast), $ast));
+        return new SingleSelectSqlFinalizer($this->createSqlForFinalizer($ast));
     }
 
     private function resolveExecutor(DeleteStatement|UpdateStatement $ast, SqlWalker $walker): AbstractSqlExecutor
@@ -103,9 +114,9 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         };
     }
 
-    public function walkSelectStatement(SelectStatement $ast): string
+    protected function createSqlForFinalizer(SelectStatement $ast): string
     {
-        return $this->applyFormulas(parent::walkSelectStatement($ast), $ast);
+        return $this->applyFormulas(parent::createSqlForFinalizer($ast), $ast);
     }
 
     /**
