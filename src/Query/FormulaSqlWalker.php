@@ -10,19 +10,13 @@ use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
-use Doctrine\ORM\Query\Exec\FinalizedSelectExecutor;
 use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
 use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
 use Doctrine\ORM\Query\Exec\SqlFinalizer;
 use Doctrine\ORM\Query\OutputWalker;
 use Doctrine\ORM\Query\SqlWalker;
 use LogicException;
-use ReflectionException;
-use ReflectionMethod;
-use ReflectionParameter;
-use ReflectionProperty;
 use RuntimeException;
-use Throwable;
 
 /**
  * Custom Output Walker that injects formula subqueries into the SELECT clause.
@@ -40,63 +34,16 @@ use Throwable;
  * is applied on top of its output. This ensures compatibility with other libraries
  * that also use custom output walkers (e.g. Gedmo, Paginator extensions).
  */
-final class FormulaSqlWalker extends SqlWalker implements OutputWalker
+class FormulaSqlWalker extends SqlWalker implements OutputWalker
 {
     /**
      * We cannot inject via constructor (Doctrine instantiates walkers itself),
      * so the registry is passed through a Query hint.
      */
-    public const HINT_REGISTRY = 'formula_doctrine.registry';
-
-    /**
-     * Hint key used to pass the previously registered OutputWalker class name
-     * so we can delegate to it before applying formula replacements.
-     */
-    public const HINT_PREVIOUS_WALKER = 'formula_doctrine.previous_walker';
+    final public const HINT_REGISTRY = 'formula_doctrine.registry';
 
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
-        try {
-            // Delegate to the previously registered walker if present
-            $previousWalker = $this->getPreviousWalkerClass();
-
-            if ($previousWalker) {
-                if ($previousWalker instanceof OutputWalker) {
-                    $previousFinalizer = $previousWalker->getFinalizer($ast);
-
-                    if ($ast instanceof DeleteStatement || $ast instanceof UpdateStatement) {
-                        return $previousFinalizer;
-                    }
-
-                    // instanceof cannot be used because the finalizer can inherit it and implement different logic
-                    if ($previousFinalizer::class == SingleSelectSqlFinalizer::class) {
-                        $sql = (new ReflectionProperty(SingleSelectSqlFinalizer::class, 'sql'))->getValue($previousFinalizer);
-
-                        return new SingleSelectSqlFinalizer($this->applyFormulas($sql, $ast));
-                    }
-
-                    // This isn't entirely correct. If the final query contains LIMIT/OFFSET, they will be cached
-                    // and pagination won't work. But we won't resolve custom finalizers any other way.
-                    $sql = $previousFinalizer->createExecutor($this->getQuery())
-                        ->getSqlStatements();
-
-                    return new PreparedExecutorFinalizer(new FinalizedSelectExecutor($this->applyFormulas($sql, $ast)));
-                }
-
-                if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
-                    return new PreparedExecutorFinalizer($this->resolveExecutor($ast, $previousWalker));
-                }
-
-                // We assume that the author of this walker understands how vulkers in Doctrine ORM
-                // are arranged and implemented his logic here, and not in walkSelectStatement()
-                $sql = $this->applyFormulas($previousWalker->createSqlForFinalizer($ast), $ast);
-
-                return new PreparedExecutorFinalizer(new FinalizedSelectExecutor($sql));
-            }
-        } catch (Throwable) {
-            // Ignore errors, fall back to our own walker
-        }
-
         if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
             return new PreparedExecutorFinalizer($this->resolveExecutor($ast, $this));
         }
@@ -106,7 +53,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         return new SingleSelectSqlFinalizer($this->createSqlForFinalizer($ast));
     }
 
-    private function resolveExecutor(DeleteStatement|UpdateStatement $ast, SqlWalker $walker): AbstractSqlExecutor
+    final protected function resolveExecutor(DeleteStatement|UpdateStatement $ast, SqlWalker $walker): AbstractSqlExecutor
     {
         return match (true) {
             $ast instanceof UpdateStatement => $walker->createUpdateStatementExecutor($ast),
@@ -114,7 +61,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
         };
     }
 
-    protected function createSqlForFinalizer(SelectStatement $ast): string
+    final protected function createSqlForFinalizer(SelectStatement $ast): string
     {
         return $this->applyFormulas(parent::createSqlForFinalizer($ast), $ast);
     }
@@ -122,7 +69,7 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
     /**
      * Applies formula replacements to the SQL string for all collected aliases.
      */
-    private function applyFormulas(string $sql, SelectStatement $ast): string
+    final protected function applyFormulas(string $sql, SelectStatement $ast): string
     {
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
@@ -228,7 +175,6 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
             $aliases[$entityClass] = $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass);
 
-//            if ($metadata->inheritanceType == ClassMetadata::INHERITANCE_TYPE_JOINED) {}
             foreach ($metadata->subClasses as $subClass) {
                 $aliases[$subClass] = $this->resolveSqlAliasByDqlAlias($dqlAlias, $subClass);
             }
@@ -248,45 +194,5 @@ final class FormulaSqlWalker extends SqlWalker implements OutputWalker
             ->getTableName();
 
         return $this->getSQLTableAlias($tableName, $dqlAlias);
-    }
-
-    /**
-     * Retrieves the previously registered walker class from the query hint.
-     * If the hint is not set or is the current walker class, returns null.
-     *
-     * @throws ReflectionException
-     */
-    private function getPreviousWalkerClass(): SqlWalker|OutputWalker|null
-    {
-        $previousWalkerClass = $this->getQuery()->getHint(self::HINT_PREVIOUS_WALKER);
-
-        if (is_string($previousWalkerClass) && $previousWalkerClass !== '' && $previousWalkerClass !== self::class) {
-            return $this->createPreviousWalker($previousWalkerClass);
-        }
-
-        return null;
-    }
-
-    /**
-     * Instantiates the previous walker by reusing our own constructor arguments.
-     * Reads the target constructor's parameter names via reflection and maps them
-     * to the corresponding properties of the current instance (inherited from SqlWalker).
-     *
-     * @throws ReflectionException
-     */
-    private function createPreviousWalker(string $walkerClass): SqlWalker|OutputWalker
-    {
-        $constructor = new ReflectionMethod($walkerClass, '__construct');
-
-        $args = array_map(
-            function (ReflectionParameter $param) use ($walkerClass): mixed {
-                $reflectionProperty = new ReflectionProperty(SqlWalker::class, $param->getName());
-
-                return $reflectionProperty->getValue($this);
-            },
-            $constructor->getParameters(),
-        );
-
-        return new $walkerClass(...$args);
     }
 }

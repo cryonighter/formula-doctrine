@@ -5,6 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Configuration;
 use Cryonighter\FormulaDoctrine\Mapping\ChainingClassMetadataFactory;
 use Cryonighter\FormulaDoctrine\Mapping\FormulaDoctrineClassMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
+use Cryonighter\FormulaDoctrine\Query\ChainingFormulaSqlWalker;
 use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\Query;
@@ -70,10 +71,10 @@ final readonly class FormulaDoctrineConfigurator
         $existingWalker = $configuration->getDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER);
 
         if (is_string($existingWalker) && $existingWalker !== '' && $existingWalker !== FormulaSqlWalker::class) {
-            $configuration->setDefaultQueryHint(FormulaSqlWalker::HINT_PREVIOUS_WALKER, $existingWalker);
+            $configuration->setDefaultQueryHint(ChainingFormulaSqlWalker::HINT_PREVIOUS_WALKER, $existingWalker);
+            $configuration->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, ChainingFormulaSqlWalker::class);
+        } else {
+            $configuration->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, FormulaSqlWalker::class);
         }
-
-        // Apply FormulaSqlWalker to every DQL query by default
-        $configuration->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, FormulaSqlWalker::class);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\Query\FormulaSqlWalker;
+use Cryonighter\FormulaDoctrine\Query\ChainingFormulaSqlWalker;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Walker\AddCommentSqlWalker;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\ORM\Query;
@@ -32,7 +32,7 @@ final class WalkerChainingTest extends OrmTestCase
     public function testPreviousWalkerHintIsSetInConfiguration(): void
     {
         $hint = $this->em->getConfiguration()
-            ->getDefaultQueryHint(FormulaSqlWalker::HINT_PREVIOUS_WALKER);
+            ->getDefaultQueryHint(ChainingFormulaSqlWalker::HINT_PREVIOUS_WALKER);
 
         self::assertSame(AddCommentSqlWalker::class, $hint);
     }
@@ -45,7 +45,7 @@ final class WalkerChainingTest extends OrmTestCase
         $hint = $this->em->getConfiguration()
             ->getDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER);
 
-        self::assertSame(FormulaSqlWalker::class, $hint);
+        self::assertSame(ChainingFormulaSqlWalker::class, $hint);
     }
 
     public function testSqlWalkerChainingWithFormulaValues(): void
