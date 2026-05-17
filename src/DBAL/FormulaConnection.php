@@ -51,24 +51,57 @@ final class FormulaConnection extends AbstractConnectionMiddleware
             return $sql;
         }
 
+        // This operation is simpler, we perform it first
+        $tableAliases = $this->extractTableAliases($sql);
+
+        if (!$tableAliases) {
+            return $sql;
+        }
+
         $formulaAliases = $this->getFormulaAliases();
 
         if (!$formulaAliases) {
             return $sql;
         }
 
-        $tableAliases = $this->extractTableAliases($sql);
-
         foreach ($tableAliases as $tableName => $tableAlias) {
             foreach ($formulaAliases[$tableName] ?? [] as $columnAlias => $meta) {
-                $columnRef = "$tableAlias.$columnAlias";
+                $columnName = "$tableAlias.$columnAlias";
 
-                if (!str_contains($sql, $columnRef)) {
+                $countColumnName = substr_count($sql, $columnName);
+
+                if (!$countColumnName) {
                     continue;
                 }
 
-                $resolvedSql = str_replace('{this}', $tableAlias, $meta->sql);
-                $sql = str_replace($columnRef, $resolvedSql, $sql);
+                $formulaSql = str_replace('{this}', $tableAlias, $meta->sql);
+
+                if ($countColumnName === 1) {
+                    $sql = str_replace($columnName, $formulaSql, $sql);
+
+                    continue;
+                }
+
+                $columnNameEscaped = preg_quote($columnName);
+                $regExp = "/$columnNameEscaped\s+(AS|as)\s+(\w+)([\s,])/";
+                preg_match($regExp, $sql, $matches);
+
+                if (empty($matches)) {
+                    $sql = str_replace($columnName, $formulaSql, $sql);
+
+                    continue;
+                }
+
+                $columnAlias = $matches[2];
+
+                $sql = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sql, 1);
+                $sql = str_replace($columnName, $columnAlias, $sql);
+
+                // When using the #Formula and #Column attributes simultaneously, the field is somehow duplicated in the query
+                // However, we remove metadata created via #Column if the field contains the #Formula attribute
+                // I suspect that the find() mechanisms read the attribute contents directly, not the metadata
+                // In any case, I decided not to investigate the cause of this behavior and simply removed the duplicates
+                $sql = preg_replace("/$columnAlias\s+(AS|as)\s+$columnAlias([\s,])/", '', $sql);
             }
         }
 

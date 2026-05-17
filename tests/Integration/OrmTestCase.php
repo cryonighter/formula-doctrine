@@ -24,11 +24,13 @@ use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 class OrmTestCase extends TestCase
 {
+    protected FormulaMetadataRegistry $registry;
     protected EntityManagerInterface $em;
     protected QueryLogger $queryLogger;
 
     protected function setUp(): void
     {
+        $this->registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
         $this->queryLogger = new QueryLogger();
         $this->em = $this->createEntityManager($this->queryLogger, false);
         $this->createSchema();
@@ -77,14 +79,13 @@ class OrmTestCase extends TestCase
         }
 
         // Connecting FormulaDoctrineConfigurator directly, without Symfony
-        $registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
-        $configurator = new FormulaDoctrineConfigurator($registry);
+        $configurator = new FormulaDoctrineConfigurator($this->registry);
         $configurator->configure($ormConfig);
 
         $dbalConfig = new DbalConfiguration();
         $dbalConfig->setMiddlewares([
             $queryLogger, // Must be first middleware
-            new FormulaMiddleware($registry),
+            new FormulaMiddleware($this->registry),
         ]);
 
         $em = new EntityManager(
@@ -96,12 +97,12 @@ class OrmTestCase extends TestCase
 
         $eventManager->addEventListener(
             Events::loadClassMetadata,
-            new LoadClassMetadataListener($registry),
+            new LoadClassMetadataListener($this->registry),
         );
 
         $eventManager->addEventListener(
             'postGenerateSchema',
-            new PostGenerateSchemaListener($registry),
+            new PostGenerateSchemaListener($this->registry),
         );
 
         return $em;

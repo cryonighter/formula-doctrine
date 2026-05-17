@@ -23,12 +23,22 @@ final class WhereFormulaTest extends OrmTestCase
         // Exactly 1 eagerly query via DQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
+        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
+
         // Returned the required amount of reviews
         self::assertCount(2, $products);
 
         // The field values are correct
         self::assertSame('Product 1', $products[0]->name);
         self::assertSame('Product 4', $products[1]->name);
+
+        self::assertSame(3, $products[0]->orderCount);
+        self::assertSame(2, $products[1]->orderCount);
     }
 
     public function testFindWhere(): void
@@ -45,12 +55,22 @@ final class WhereFormulaTest extends OrmTestCase
         // Exactly 1 eagerly query via DQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
+        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
+
         // Returned the required amount of reviews
         self::assertCount(2, $products);
 
         // The field values are correct
         self::assertSame('Product 3', $products[0]->name);
         self::assertSame('Product 5', $products[1]->name);
+
+        self::assertSame(2, $products[0]->orderCount);
+        self::assertSame(2, $products[1]->orderCount);
     }
 
     public function testDqlJoinWhere(): void
@@ -72,6 +92,13 @@ final class WhereFormulaTest extends OrmTestCase
 
         // Exactly 1 eagerly query via DQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
 
         // Returned the required amount of reviews
         self::assertCount(2, $reviews);

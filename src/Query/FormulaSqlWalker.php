@@ -28,11 +28,6 @@ use RuntimeException;
  * Formula fields are registered in ClassMetadata by LoadClassMetadataListener,
  * so ObjectHydrator can hydrate them directly via standard fieldMappings —
  * no custom hydrator or setHydrationMode() needed.
- *
- * Supports Walker Chaining: if another OutputWalker was already registered
- * via HINT_CUSTOM_OUTPUT_WALKER, it is invoked first and formula replacement
- * is applied on top of its output. This ensures compatibility with other libraries
- * that also use custom output walkers (e.g. Gedmo, Paginator extensions).
  */
 class FormulaSqlWalker extends SqlWalker implements OutputWalker
 {
@@ -73,9 +68,36 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
     {
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
-                $resolvedSql = str_replace('{this}', $sqlTableAlias, $meta->sql);
+                $columnName = "$sqlTableAlias.$meta->alias";
 
-                $sql = str_replace("$sqlTableAlias.$meta->alias", $resolvedSql, $sql);
+                $countColumnName = substr_count($sql, $columnName);
+
+                if (!$countColumnName) {
+                    continue;
+                }
+
+                $formulaSql = str_replace('{this}', $sqlTableAlias, $meta->sql);
+
+                if ($countColumnName === 1) {
+                    $sql = str_replace($columnName, $formulaSql, $sql);
+
+                    continue;
+                }
+
+                $columnNameEscaped = preg_quote($columnName);
+                $regExp = "/$columnNameEscaped\s+(AS|as)\s+(\w+)([\s,])/";
+                preg_match($regExp, $sql, $matches);
+
+                if (empty($matches)) {
+                    $sql = str_replace($columnName, $formulaSql, $sql);
+
+                    continue;
+                }
+
+                $columnAlias = $matches[2];
+
+                $sql = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sql, 1);
+                $sql = str_replace($columnName, $columnAlias, $sql);
             }
         }
 
