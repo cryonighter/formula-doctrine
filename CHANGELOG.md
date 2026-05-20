@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.1.4] - 2026-05-21
+### Changed
+- Optimization of a SQL query in which a subquery from a formula occurs several times (for example, in the WHERE, GROUP BY, HAVING)
+
 ## [1.1.3] - 2026-05-11
 ### Fixed
 - Bug with limit/offset caching
@@ -45,3 +49,4 @@ This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 [1.1.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.1
 [1.1.2]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.2
 [1.1.3]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.3
+[1.1.4]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.4

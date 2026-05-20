@@ -211,6 +211,115 @@ echo $customer[0]->orderCount;    // populated from subquery
 echo $customer[0]->totalRevenue;  // populated from subquery
 ```
 
+### Using formula fields in queries
+
+Formula fields can be used in `WHERE`, `ORDER BY`, `GROUP BY` and `HAVING` clauses
+just like regular entity properties:
+
+#### WHERE clause
+
+Filter entities by computed values:
+
+```php
+// DQL
+$customers = $entityManager
+    ->createQuery('SELECT c FROM App\Entity\Customer c WHERE c.orderCount > :minOrders')
+    ->setParameter('minOrders', 5)
+    ->getResult();
+
+// QueryBuilder
+$customers = $entityManager
+    ->createQueryBuilder()
+    ->select('c')
+    ->from(Customer::class, 'c')
+    ->where('c.totalRevenue >= :minRevenue')
+    ->setParameter('minRevenue', 1000.0)
+    ->getQuery()
+    ->getResult();
+
+// Repository findBy()
+$customers = $customerRepository->findBy(['orderCount' => 10]);
+```
+
+
+#### ORDER BY clause
+
+Sort by formula fields:
+
+```php
+// DQL
+$customers = $entityManager
+    ->createQuery('SELECT c FROM App\Entity\Customer c ORDER BY c.totalRevenue DESC')
+    ->getResult();
+
+// QueryBuilder
+$customers = $entityManager
+    ->createQueryBuilder()
+    ->select('c')
+    ->from(Customer::class, 'c')
+    ->orderBy('c.orderCount', 'DESC')
+    ->getQuery()
+    ->getResult();
+
+// Repository findBy() with ordering
+$customers = $customerRepository->findBy(
+    [],
+    ['totalRevenue' => 'DESC']
+);
+```
+
+
+#### GROUP BY and HAVING clauses
+
+Aggregate and filter by computed values:
+
+```php
+// Group customers by order count and filter groups
+$result = $entityManager
+    ->createQuery('
+        SELECT c.orderCount, COUNT(c.id) as customerCount, AVG(c.totalRevenue) as avgRevenue
+        FROM App\Entity\Customer c
+        GROUP BY c.orderCount
+        HAVING c.orderCount >= :minOrders AND COUNT(c.id) > :minCustomers
+        ORDER BY c.orderCount DESC
+    ')
+    ->setParameter('minOrders', 3)
+    ->setParameter('minCustomers', 1)
+    ->getResult();
+
+// Result example:
+// [
+//   ['orderCount' => 10, 'customerCount' => 5, 'avgRevenue' => 15000.50],
+//   ['orderCount' => 7,  'customerCount' => 3, 'avgRevenue' => 8500.25],
+//   ...
+// ]
+```
+
+
+#### Combined example
+
+All clauses together in a single query:
+
+```php
+$result = $entityManager
+    ->createQuery('
+        SELECT c.orderCount, COUNT(c.id) as total
+        FROM App\Entity\Customer c
+        WHERE c.totalRevenue > :minRevenue
+        GROUP BY c.orderCount
+        HAVING c.orderCount BETWEEN :minOrders AND :maxOrders
+        ORDER BY c.orderCount DESC
+    ')
+    ->setParameter('minRevenue', 500.0)
+    ->setParameter('minOrders', 2)
+    ->setParameter('maxOrders', 10)
+    ->getResult();
+```
+
+> **Note:** Formula fields work transparently in all query clauses.
+> The SQL subquery is embedded only once per query, not per clause usage.
+
+
 ### Nullable fields
 
 If a formula can return `NULL` (e.g. `MAX` on an empty set),
