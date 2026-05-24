@@ -49,12 +49,11 @@ Bootstrap the stack manually when creating your `EntityManager`:
 <?php
 
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
-use Cryonighter\FormulaDoctrine\DependencyInjection\FormulaDoctrineConfigurator;
+use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
-use Cryonighter\FormulaDoctrine\EventListener\OnFlushListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
-use Cryonighter\FormulaDoctrine\Metadata\FormulaRegistry;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
@@ -62,7 +61,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
 
 // 1. Build the registry
-$registry = new FormulaRegistry(new FormulaMetadataFactory());
+$registry = new FormulaMetadataRegistry(new FormulaMetadataFactory());
 
 // 2. Configure DBAL — add FormulaMiddleware
 $dbalConfig = new DbalConfiguration();
