@@ -5,8 +5,11 @@ namespace Cryonighter\FormulaDoctrine\Metadata;
 /**
  * In-memory registry of formula metadata per entity class.
  * Acts as a session-scoped cache to avoid repeated Reflection calls.
+ *
+ * @final
+ * @internal
  */
-final class FormulaMetadataRegistry
+class FormulaMetadataRegistry
 {
     /**
      * @var array<class-string, array<FormulaMetadata>>
@@ -96,11 +99,17 @@ final class FormulaMetadataRegistry
         return null;
     }
 
+    /**
+     * Returns the table name associated with a given class.
+     */
     public function getTableNameForClass(string $className): ?string
     {
         return $this->tableNames[$className] ?? null;
     }
 
+    /**
+     * Sets the table name for a given class.
+     */
     public function setTableNameForClass(string $className, string $tableName): void
     {
         $this->tableNames[$className] = $tableName;
