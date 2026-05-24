@@ -1,12 +1,11 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\JoinedProduct;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-#[ORM\Table(name: 'order_items_inherited')]
+#[ORM\Table(name: 'order_items_inherited_joined')]
 class OrderItem
 {
     #[ORM\Id]

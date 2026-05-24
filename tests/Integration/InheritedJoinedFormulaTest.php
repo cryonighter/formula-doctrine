@@ -4,13 +4,13 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\FormulaJoinedProduct;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\JoinedProduct;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\OrderItem;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Rating;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Review;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\OrderItem;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\Rating;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\Review;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
-final class InheritedFormulaTest extends OrmTestCase
+final class InheritedJoinedFormulaTest extends OrmTestCase
 {
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders

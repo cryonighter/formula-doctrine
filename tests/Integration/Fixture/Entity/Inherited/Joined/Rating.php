@@ -1,13 +1,12 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\JoinedProduct;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-#[ORM\Table(name: 'ratings_inherited')]
+#[ORM\Table(name: 'ratings_inherited_joined')]
 class Rating
 {
     #[ORM\Id]
@@ -21,7 +20,7 @@ class Rating
         public JoinedProduct $product,
 
         // Readonly field formula
-        #[Formula('(SELECT (SUM(rv.rating) / COUNT(rv.id)) FROM reviews_inherited rv WHERE rv.product_id = {this}.id)')]
+        #[Formula('(SELECT (SUM(rv.rating) / COUNT(rv.id)) FROM reviews_inherited_joined rv WHERE rv.product_id = {this}.id)')]
         public readonly float $stars = 0,
     ) {
     }

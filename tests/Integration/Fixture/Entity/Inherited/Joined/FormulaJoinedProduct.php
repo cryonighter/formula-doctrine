@@ -12,16 +12,16 @@ class FormulaJoinedProduct extends JoinedProduct implements FormulaProductInterf
 {
     // COUNT subquery
     // Formula and Column together - formula priority
-    #[Formula('(SELECT COUNT(*) FROM order_items_inherited oi WHERE oi.product_id = {this}.id)')]
+    #[Formula('(SELECT COUNT(*) FROM order_items_inherited_joined oi WHERE oi.product_id = {this}.id)')]
     #[ORM\Column(name: 'order_count')]
     public int $orderCount = 0;
 
     // SUM subquery with expression
-    #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items_inherited oi WHERE oi.product_id = {this}.id)', alias: 'total')]
+    #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items_inherited_joined oi WHERE oi.product_id = {this}.id)', alias: 'total')]
     public float $totalRevenue = 0.0;
 
     // Nullable formula
-    #[Formula('(SELECT MAX(oi.price) FROM order_items_inherited oi WHERE oi.product_id = {this}.id)')]
+    #[Formula('(SELECT MAX(oi.price) FROM order_items_inherited_joined oi WHERE oi.product_id = {this}.id)')]
     public ?float $maxItemPrice = null;
 
     public function getOrderCount(): int
