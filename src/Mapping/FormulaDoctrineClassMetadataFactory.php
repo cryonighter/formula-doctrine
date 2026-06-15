@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 
 class FormulaDoctrineClassMetadataFactory extends ChainingClassMetadataFactory
 {
+    private EntityManagerInterface $em;
     private FormulaMetadataRegistry $registry;
 
     public function setEntityManager(EntityManagerInterface $em): void
@@ -18,14 +19,15 @@ class FormulaDoctrineClassMetadataFactory extends ChainingClassMetadataFactory
         $configuration = $em->getConfiguration();
 
         $this->registry = $configuration->getDefaultQueryHint(FormulaSqlWalker::HINT_REGISTRY);
+
+        $this->em = $em;
     }
 
     public function getMetadataFor(string $className): ClassMetadata
     {
         $classMetadata = parent::getMetadataFor($className);
 
-        $this->registry->getForClass($className);
-        $this->registry->setTableNameForClass($className, $classMetadata->getTableName());
+        $this->registry->createForClass($className, $classMetadata->getTableName(), $this->em);
 
         return $classMetadata;
     }

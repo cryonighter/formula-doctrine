@@ -2,6 +2,8 @@
 
 namespace Cryonighter\FormulaDoctrine\Metadata;
 
+use Doctrine\ORM\EntityManagerInterface;
+
 /**
  * In-memory registry of formula metadata per entity class.
  * Acts as a session-scoped cache to avoid repeated Reflection calls.
@@ -51,6 +53,23 @@ class FormulaMetadataRegistry
         return array_keys($this->scanned);
     }
 
+    public function createForClass(string $className, string $tableName, EntityManagerInterface $em): array
+    {
+        if (!isset($this->scanned[$className])) {
+            $meta = $this->factory->createForClass($className, $tableName, $em);
+
+            if ($meta) {
+                $this->metadata[$className] = $meta;
+            }
+
+            $this->tableNames[$className] = $tableName;
+
+            $this->scanned[$className] = true;
+        }
+
+        return $this->metadata[$className] ?? [];
+    }
+
     /**
      * Returns all formula metadata for a given class.
      *
@@ -60,16 +79,6 @@ class FormulaMetadataRegistry
      */
     public function getForClass(string $className): array
     {
-        if (!isset($this->scanned[$className])) {
-            $meta = $this->factory->createForClass($className);
-
-            if ($meta) {
-                $this->metadata[$className] = $meta;
-            }
-
-            $this->scanned[$className] = true;
-        }
-
         return $this->metadata[$className] ?? [];
     }
 
@@ -105,13 +114,5 @@ class FormulaMetadataRegistry
     public function getTableNameForClass(string $className): ?string
     {
         return $this->tableNames[$className] ?? null;
-    }
-
-    /**
-     * Sets the table name for a given class.
-     */
-    public function setTableNameForClass(string $className, string $tableName): void
-    {
-        $this->tableNames[$className] = $tableName;
     }
 }

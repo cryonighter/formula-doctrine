@@ -17,9 +17,10 @@ class Product
     #[ORM\Column]
     public string $name;
 
-    // COUNT subquery
+    // DQL COUNT subquery
     // Formula and Column together - formula priority
-    #[Formula('(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = {this}.id)')]
+    // #[Formula('(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = {this}.id)')]
+    #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     #[ORM\Column(name: 'order_count')]
     public int $orderCount = 0;
 
