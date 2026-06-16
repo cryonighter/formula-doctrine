@@ -46,8 +46,7 @@ class FormulaDoctrineClassMetadataFactoryTest extends TestCase
      *
      * The test ensures that:
      * 1. When retrieving class metadata, registry->getForClass() is called
-     * 2. The table name is registered via registry->setTableNameForClass()
-     * 3. Metadata is returned correctly
+     * 2. Metadata is returned correctly
      */
     public function testGetMetadataForRegistersClassInRegistry(): void
     {
@@ -71,14 +70,8 @@ class FormulaDoctrineClassMetadataFactoryTest extends TestCase
         // Expect the registry to receive a request for formula metadata for the class
         $this->registry
             ->expects($this->once())
-            ->method('getForClass')
+            ->method('createForClass')
             ->with($className);
-
-        // Expect the table name to be registered for the class
-        $this->registry
-            ->expects($this->once())
-            ->method('setTableNameForClass')
-            ->with($className, $tableName);
 
         // Create and initialize an instance of the tested class
         $factory = new FormulaDoctrineClassMetadataFactory();
@@ -136,13 +129,8 @@ class FormulaDoctrineClassMetadataFactoryTest extends TestCase
         // Verify that the registry also receives requests
         $this->registry
             ->expects($this->once())
-            ->method('getForClass')
+            ->method('createForClass')
             ->with($className);
-
-        $this->registry
-            ->expects($this->once())
-            ->method('setTableNameForClass')
-            ->with($className, $tableName);
 
         // Call the tested method
         $result = $factory->getMetadataFor($className);

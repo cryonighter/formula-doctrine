@@ -201,7 +201,7 @@ final class FormulaConnectionTest extends TestCase
         return new FormulaMetadata(
             entityClass: 'FakeEntity',
             propertyName: $propertyName,
-            sql: $sql,
+            sqlResolver: fn() => $sql,
             phpType: $phpType,
             dbalType: $dbalType,
             nullable: $nullable,
