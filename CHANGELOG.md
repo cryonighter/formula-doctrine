@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.2.0] - 2026-06-16
+### Added
+- Support DQL queries in the formula attribute
+
 ## [1.1.4] - 2026-05-21
 ### Changed
 - Optimization of a SQL query in which a subquery from a formula occurs several times (for example, in the WHERE, GROUP BY, HAVING)
