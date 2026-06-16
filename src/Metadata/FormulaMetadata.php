@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Metadata;
 
+use Closure;
 use Serializable;
 
 /**
@@ -13,6 +14,10 @@ final class FormulaMetadata implements Serializable
 {
     private string $sql;
 
+    /**
+     * I'm just too lazy to rewrite it to a getter
+     * And property hooks aren't supported in this version of PHP yet
+     */
     public function __get(string $name): string
     {
         if ($name === 'sql') {
@@ -29,8 +34,8 @@ final class FormulaMetadata implements Serializable
         /** PHP property name */
         public string $propertyName,
 
-        /** Raw SQL with {this} placeholder */
-        public \Closure $sqlResolver,
+        /** Resolver SQL expression from DQL expression (lazy-evaluated) */
+        public Closure $sqlResolver,
 
         /**
          * PHP type name for casting after hydration ('int', 'float', 'string', 'bool').
@@ -40,7 +45,6 @@ final class FormulaMetadata implements Serializable
 
         /**
          * Doctrine DBAL type name ('integer', 'float', 'string', 'boolean').
-         * Used in ResultSetMapping::addScalarResult().
          */
         public string $dbalType,
 
