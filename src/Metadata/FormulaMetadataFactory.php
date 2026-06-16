@@ -3,11 +3,14 @@
 namespace Cryonighter\FormulaDoctrine\Metadata;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
+use Cryonighter\FormulaDoctrine\Query\FormulaExtractionWalker;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionUnionType;
+use RuntimeException;
 
 /**
  * Reads #[Formula] attributes from entity classes via Reflection.
@@ -121,17 +124,36 @@ final class FormulaMetadataFactory
         $formulaDql = str_replace('{this}', $tempDqlAlias, $dql);
         $wrapperDql = "SELECT ($formulaDql) FROM $entityClass $tempDqlAlias";
 
-        $wrapperSql = $em->createQuery($wrapperDql)->getSQL();
+        $wrapperQuery = $em->createQuery($wrapperDql);
+        $wrapperQuery->setHint(Query::HINT_CUSTOM_OUTPUT_WALKER, FormulaExtractionWalker::class);
+        $wrapperQuery->useQueryCache(false);
+
+        $wrapperSql = $wrapperQuery->getSQL();
+
+        $aliasMap = $wrapperQuery->getHint(FormulaExtractionWalker::HINT_ALIAS_MAP);
+
+        if (empty($aliasMap)) {
+            throw new RuntimeException("Could not get SQL alias map for entity $entityClass: $dql");
+        }
+
+        // For the subquery we need the alias of the entity class that owns the formula.
+        // In JOINED inheritance this is the parent class table alias (e.g. p1_), not the subclass (p2_).
+        // Walk up the class hierarchy to find the alias of the table that contains the correlated column.
+        $parentClasses = $em->getClassMetadata($entityClass)->parentClasses;
+        $parentClass = array_pop($parentClasses) ?? $entityClass;
+
+        $wrapperSqlTableAlias = $aliasMap[$parentClass]
+            ?? throw new RuntimeException("Could not resolve SQL alias for entity $entityClass: $dql");
 
         // Extract the subquery and table alias from the fake SQL query
         $quotedTableName = preg_quote($tableName, '/');
         $pattern = "/SELECT\s+(\((?:[^()]*|(?1))*\))\s+AS\s+\w+\s+FROM\s+$quotedTableName\s+(\w+)/is";
 
         if (!preg_match($pattern, $wrapperSql, $matches)) {
-            throw new \RuntimeException("Could not extract subquery SQL from DQL formula for entity $entityClass: $dql");
+            throw new RuntimeException("Could not extract subquery SQL from DQL formula for entity $entityClass: $dql");
         }
 
-        [1 => $formulaSql, 2 => $wrapperSqlTableAlias] = $matches;
+        [1 => $formulaSql] = $matches;
 
         // Replace the sentinel SQL alias back with {this} placeholder, so it can be resolved
         // to the real alias at query time — both in FormulaSqlWalker and in FormulaConnection

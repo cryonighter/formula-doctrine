@@ -10,9 +10,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'products_inherited_joined_formula')]
 class FormulaJoinedProduct extends JoinedProduct implements FormulaProductInterface
 {
-    // COUNT subquery
+    // DQL COUNT subquery
     // Formula and Column together - formula priority
-    #[Formula('(SELECT COUNT(*) FROM order_items_inherited_joined oi WHERE oi.product_id = {this}.id)')]
+    // #[Formula('(SELECT COUNT(*) FROM order_items_inherited_joined oi WHERE oi.product_id = {this}.id)')]
+    #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     #[ORM\Column(name: 'order_count')]
     public int $orderCount = 0;
 
