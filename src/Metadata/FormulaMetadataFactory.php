@@ -114,9 +114,45 @@ final class FormulaMetadataFactory
 
     /**
      * Converts a DQL formula to a SQL subquery template.
-     * The resulting SQL still contains {this} as a placeholder for the runtime table alias.
+     *
+     * The result is cached in the Doctrine query cache (if configured) to avoid
+     * re-running the walker on every process boot when query cache is enabled.
      */
     private function convertDqlToSql(string $dql, string $entityClass, string $tableName, EntityManagerInterface $em): string
+    {
+        $queryCache = $em->getConfiguration()->getQueryCache();
+
+        if ($queryCache !== null) {
+            $cacheKey = $this->buildCacheKey($dql, $entityClass, $em);
+            $cacheItem = $queryCache->getItem($cacheKey);
+
+            if ($cacheItem->isHit()) {
+                return $cacheItem->get();
+            }
+        }
+
+        $result = $this->doConvertDqlToSql($dql, $entityClass, $tableName, $em);
+
+        if ($queryCache !== null) {
+            $cacheItem->set($result);
+            $queryCache->save($cacheItem);
+        }
+
+        return $result;
+    }
+
+    private function buildCacheKey(string $dql, string $entityClass, EntityManagerInterface $em): string
+    {
+        $platform = get_class($em->getConnection()->getDatabasePlatform());
+
+        return 'formula_sql_' . hash('xxh128', $entityClass . $dql . $platform);
+    }
+
+    /**
+     * Converts a DQL formula to a SQL subquery template.
+     * The resulting SQL still contains {this} as a placeholder for the runtime table alias.
+     */
+    private function doConvertDqlToSql(string $dql, string $entityClass, string $tableName, EntityManagerInterface $em): string
     {
         $tempDqlAlias = 'formula_root__';
 

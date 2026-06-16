@@ -56,11 +56,7 @@ class FormulaMetadataRegistry
     public function createForClass(string $className, string $tableName, EntityManagerInterface $em): array
     {
         if (!isset($this->scanned[$className])) {
-            $meta = $this->factory->createForClass($className, $tableName, $em);
-
-            if ($meta) {
-                $this->metadata[$className] = $meta;
-            }
+            $this->metadata[$className] = $this->factory->createForClass($className, $tableName, $em);
 
             $this->tableNames[$className] = $tableName;
 
