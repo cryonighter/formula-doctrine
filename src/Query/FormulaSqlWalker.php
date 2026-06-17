@@ -66,7 +66,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     final protected function applyFormulas(string $sql, SelectStatement $ast): string
     {
-        $rootTableName = $this->getRootTableName($ast->fromClause);
+        [$rootTableName, $rootTableAlias] = $this->getRootTableNameAndAlias($ast->fromClause);
 
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
@@ -103,8 +103,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 $columnAlias = $matches[2];
 
                 // TODO: There might be a problem with the recursive query!
-                // TODO: Maybe this should be done after the JOIN?
-                $sqlArr = explode(" FROM $rootTableName ", $sql);
+                $sqlArr = explode(" FROM $rootTableName $rootTableAlias ", $sql);
 
                 if (count($sqlArr) !== 2) {
                     throw new RuntimeException('Unexpected SQL query structure');
@@ -121,7 +120,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 // Replace other references to the formula field with an alias (after FROM)
                 $sqlArr[1] = str_replace($columnName, $columnAlias, $sqlArr[1]);
 
-                $sql = implode(" FROM $rootTableName ", $sqlArr);
+                $sql = implode(" FROM $rootTableName $rootTableAlias ", $sqlArr);
             }
         }
 
@@ -151,7 +150,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
         $formulasByAlias = [];
 
-        foreach ($this->collectSqlAliasMap($ast->fromClause) as $entityClass => $sqlAlias) {
+        foreach ($this->collectSqlAliasMap($ast) as $entityClass => $sqlAlias) {
             if (!$registry->hasFormulas($entityClass)) {
                 continue;
             }
@@ -175,11 +174,11 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      *
      * @return array<string, string>
      */
-    private function collectSqlAliasMap(FromClause $fromClause): array
+    private function collectSqlAliasMap(SelectStatement $ast): array
     {
         $aliases = [];
 
-        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
+        foreach ($ast->fromClause->identificationVariableDeclarations as $declaration) {
             // Root alias declaration (FROM clause)
             $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
 
@@ -245,14 +244,20 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             ->getTableName();
     }
 
-    private function getRootTableName(FromClause $fromClause): string
+    private function getRootTableNameAndAlias(FromClause $fromClause): array
     {
         foreach ($fromClause->identificationVariableDeclarations as $declaration) {
             // Root alias declaration (FROM clause)
             $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
 
             if ($rangeDeclaration !== null) {
-                return $this->resolveTableName($rangeDeclaration->abstractSchemaName);
+                $dqlAlias = $rangeDeclaration->aliasIdentificationVariable;
+                $entityClass = $rangeDeclaration->abstractSchemaName;
+
+                $tableName = $this->resolveTableName($entityClass);
+                $tableAlias = $this->getSQLTableAlias($tableName, $dqlAlias);
+
+                return [$tableName, $tableAlias];
             }
         }
 
