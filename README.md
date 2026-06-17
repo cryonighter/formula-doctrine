@@ -345,6 +345,37 @@ $result = $entityManager
 > The SQL subquery is embedded only once per query, not per clause usage.
 
 
+### Aggregate functions
+
+All DQL aggregate functions (e.g. `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) work with formula fields out of the box:
+
+```php
+$result = $entityManager
+    ->createQueryBuilder()
+    ->select(
+        'SUM(c.orderCount) as totalOrders',
+        'AVG(c.totalRevenue) as avgRevenue',
+        'MAX(c.totalRevenue) as maxRevenue',
+        'MIN(c.totalRevenue) as minRevenue',
+    )
+    ->from(Customer::class, 'c')
+    ->getQuery()
+    ->getSingleResult();
+
+// Result example:
+// [
+//   'totalOrders' => 42,
+//   'avgRevenue'  => 1500.50,
+//   'maxRevenue'  => 9800.00,
+//   'minRevenue'  => 0.0,
+// ]
+```
+
+> **Note:** `MIN` and `MAX` ignore `NULL` values — so nullable formula fields
+> (e.g. `?float $maxOrderTotal`) behave correctly even when some entities
+> have no related records.
+
+
 ### Nullable fields
 
 If a formula can return `NULL` (e.g. `MAX` on an empty set),
@@ -480,7 +511,6 @@ Entity with populated formula fields
 | Scalar types only      | Supported PHP types: `int`, `float`, `string`, `bool` and their nullable variants. Always provide a default value for non-nullable formula properties (e.g. `public int $orderCount = 0`).                    |
 | Native SQL             | `$em->getConnection()->executeQuery(...)` bypasses both Walker and Middleware entirely — formula fields will hold their default PHP values.                                                                   |
 | Schema Tool            | `doctrine:schema:create` and `doctrine:schema:update` do not create columns for formula fields — they have no physical column in the database. This is correct behaviour.                                     |
-| Walker Chaining order  | `FormulaDoctrineBundle` must be registered **last** in `config/bundles.php` among Doctrine-extending bundles to ensure correct Walker Chaining. See [Bundle Registration Order](#bundle-registration-order).  |
 
 
 ## Change log
