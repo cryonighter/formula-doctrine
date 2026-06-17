@@ -150,7 +150,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
         $formulasByAlias = [];
 
-        foreach ($this->collectSqlAliasMap($ast) as $entityClass => $sqlAlias) {
+        foreach ($this->collectSqlAliasMap($ast) as ['entityClass' => $entityClass, 'sqlAlias' => $sqlAlias]) {
             if (!$registry->hasFormulas($entityClass)) {
                 continue;
             }
@@ -170,7 +170,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      *
      * Example DQL: 'SELECT r, p FROM Review r JOIN r.product p JOIN p.tags t'
      *
-     * Example result: ['App\Entity\Review' => 'r0_', 'App\Entity\Product' => 'p1_', 'App\Entity\Tag' => 't2_']
+     * Example result: ['r0_' => 'App\Entity\Review', 'p1_' => 'App\Entity\Product', 't2_' => 'App\Entity\Tag']
      *
      * @return array<string, string>
      */
@@ -186,7 +186,11 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 $dqlAlias = $rangeDeclaration->aliasIdentificationVariable;
                 $entityClass = $rangeDeclaration->abstractSchemaName;
 
-                $aliases[$entityClass] = $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass);
+                $sqlAlias = $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass);
+
+                // We cannot use $sqlAlias as a key, since with single inheritance it will be the same for different entities
+                // We cannot use $entityClass as a key, since with subqueries to the same table they will have different aliases
+                $aliases[] = ['entityClass' => $entityClass, 'sqlAlias' => $sqlAlias];
             }
 
             // Join aliases (direct joins on this declaration)
@@ -195,7 +199,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             }
         }
 
-        return $aliases;
+        return array_unique($aliases, SORT_REGULAR);
     }
 
     /**
@@ -218,17 +222,23 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
             $entityClass = $metadata->getName();
 
-            $aliases[$entityClass] = $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass);
+            $aliases[] = [
+                'entityClass' => $entityClass,
+                'sqlAlias' => $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass),
+            ];
 
             foreach ($metadata->subClasses as $subClass) {
-                $aliases[$subClass] = $this->resolveSqlAliasByDqlAlias($dqlAlias, $subClass);
+                $aliases[] = [
+                    'entityClass' => $subClass,
+                    'sqlAlias' => $this->resolveSqlAliasByDqlAlias($dqlAlias, $subClass),
+                ];
             }
         } catch (LogicException) {
             // This means that this functionality will not work and the user will have to refuse it
             // In any case, this is an error of the Doctrine itself or its configuration, we can’t do anything
         }
 
-        return $aliases;
+        return array_unique($aliases, SORT_REGULAR);
     }
 
     private function resolveSqlAliasByDqlAlias(string $dqlAlias, string $entityClass): string
