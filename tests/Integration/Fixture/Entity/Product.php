@@ -17,7 +17,6 @@ class Product
     #[ORM\Column]
     public string $name;
 
-    // DQL COUNT subquery
     // Formula and Column together - formula priority
     // #[Formula('(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = {this}.id)')]
     #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
@@ -26,9 +25,11 @@ class Product
 
     // SUM subquery with expression
     #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items oi WHERE oi.product_id = {this}.id)', alias: 'total')]
+    // #[Formula('SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}', alias: 'total')]
     public float $totalRevenue = 0.0;
 
     // Nullable formula
     #[Formula('(SELECT MAX(oi.price) FROM order_items oi WHERE oi.product_id = {this}.id)')]
+    // #[Formula('SELECT MAX(oi.price) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     public ?float $maxItemPrice = null;
 }

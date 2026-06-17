@@ -9,7 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 class FormulaSingleProduct extends SingleProduct implements FormulaProductInterface
 {
-    // DQL COUNT subquery
+    // COUNT subquery
     // Formula and Column together - formula priority
     // #[Formula('(SELECT COUNT(*) FROM order_items_inherited_single oi WHERE oi.product_id = {this}.id)')]
     #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
@@ -18,10 +18,12 @@ class FormulaSingleProduct extends SingleProduct implements FormulaProductInterf
 
     // SUM subquery with expression
     #[Formula('(SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM order_items_inherited_single oi WHERE oi.product_id = {this}.id)', alias: 'total')]
+    // #[Formula('SELECT COALESCE(SUM(oi.price * oi.quantity), 0) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}', alias: 'total')]
     public float $totalRevenue = 0.0;
 
     // Nullable formula
     #[Formula('(SELECT MAX(oi.price) FROM order_items_inherited_single oi WHERE oi.product_id = {this}.id)')]
+    // #[Formula('SELECT MAX(oi.price) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     public ?float $maxItemPrice = null;
 
     public function getOrderCount(): int
