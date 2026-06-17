@@ -4,11 +4,16 @@ namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
+use Doctrine\ORM\Query\AST\ConditionalFactor;
+use Doctrine\ORM\Query\AST\ConditionalPrimary;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
+use Doctrine\ORM\Query\AST\Subselect;
+use Doctrine\ORM\Query\AST\SubselectFromClause;
 use Doctrine\ORM\Query\AST\UpdateStatement;
+use Doctrine\ORM\Query\AST\WhereClause;
 use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
 use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
 use Doctrine\ORM\Query\Exec\SingleSelectSqlFinalizer;
@@ -150,7 +155,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
         $formulasByAlias = [];
 
-        foreach ($this->collectSqlAliasMap($ast) as ['entityClass' => $entityClass, 'sqlAlias' => $sqlAlias]) {
+        foreach ($this->collectSqlAliases($ast) as ['entityClass' => $entityClass, 'sqlAlias' => $sqlAlias]) {
             if (!$registry->hasFormulas($entityClass)) {
                 continue;
             }
@@ -166,19 +171,74 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
+     * Recursively collects all SQL aliases from the AST including all subqueries aliases.
+     *
+     * Example DQL: 'SELECT r, p FROM Review r JOIN r.product p JOIN p.tags t'
+     *
+     * Example result: [
+     *     ['entityClass' => 'App\Entity\Review',  'sqlAlias' => 'r0_'],
+     *     ['entityClass' => 'App\Entity\Product', 'sqlAlias' => 'p1_'],
+     *     ['entityClass' => 'App\Entity\Tag',     'sqlAlias' => 't2_'],
+     * ]
+     *
+     * @return array<array<string, string>>
+     */
+    private function collectSqlAliases(SelectStatement|Subselect $ast): array
+    {
+        $aliases = $this->collectFromSqlAliases($ast instanceof SelectStatement ? $ast->fromClause : $ast->subselectFromClause);
+
+        if ($ast->whereClause) {
+            $aliases = array_merge($aliases, $this->collectWhereSqlAliases($ast->whereClause));
+        }
+
+        return array_unique($aliases, SORT_REGULAR);
+    }
+
+
+    /**
+     * Recursively collects all SQL aliases from the WHERE clause.
+     *
+     * @return array<array<string, string>>
+     */
+    private function collectWhereSqlAliases(WhereClause $whereClause): array
+    {
+        $conditionalExpression = $whereClause->conditionalExpression;
+
+        if ($conditionalExpression instanceof ConditionalFactor) {
+            $conditionalExpression = $conditionalExpression->conditionalPrimary;
+        }
+
+        if ($conditionalExpression instanceof ConditionalPrimary) {
+            // The subselect property contains 4 classes (ExistsExpression, InSubselectExpression, etc)
+            // Checking it using instanceof is inconvenient, it's easier to use isset
+            $subselect = $conditionalExpression->simpleConditionalExpression?->subselect ?? null;
+
+            if ($subselect) {
+                return $this->collectSqlAliases($subselect);
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * Collects all SQL aliases from the FROM clause including all JOIN aliases.
      *
      * Example DQL: 'SELECT r, p FROM Review r JOIN r.product p JOIN p.tags t'
      *
-     * Example result: ['r0_' => 'App\Entity\Review', 'p1_' => 'App\Entity\Product', 't2_' => 'App\Entity\Tag']
+     * Example result: [
+     *     ['entityClass' => 'App\Entity\Review',  'sqlAlias' => 'r0_'],
+     *     ['entityClass' => 'App\Entity\Product', 'sqlAlias' => 'p1_'],
+     *     ['entityClass' => 'App\Entity\Tag',     'sqlAlias' => 't2_'],
+     * ]
      *
-     * @return array<string, string>
+     * @return array<array<string, string>>
      */
-    private function collectSqlAliasMap(SelectStatement $ast): array
+    private function collectFromSqlAliases(FromClause|SubselectFromClause $fromClause): array
     {
         $aliases = [];
 
-        foreach ($ast->fromClause->identificationVariableDeclarations as $declaration) {
+        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
             // Root alias declaration (FROM clause)
             $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
 
@@ -195,19 +255,19 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
             // Join aliases (direct joins on this declaration)
             foreach ($declaration->joins as $join) {
-                $aliases = array_merge($aliases, $this->collectJoinSqlAliasMap($join));
+                $aliases = array_merge($aliases, $this->collectJoinSqlAliases($join));
             }
         }
 
-        return array_unique($aliases, SORT_REGULAR);
+        return $aliases;
     }
 
     /**
      * Recursively collects aliases from a join node.
      *
-     * @return array<string, string>
+     * @return array<array<string, string>>
      */
-    private function collectJoinSqlAliasMap(Join $join): array
+    private function collectJoinSqlAliases(Join $join): array
     {
         $aliases = [];
 
@@ -238,7 +298,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             // In any case, this is an error of the Doctrine itself or its configuration, we can’t do anything
         }
 
-        return array_unique($aliases, SORT_REGULAR);
+        return $aliases;
     }
 
     private function resolveSqlAliasByDqlAlias(string $dqlAlias, string $entityClass): string

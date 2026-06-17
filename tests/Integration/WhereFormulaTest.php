@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Review;
 use Doctrine\Persistence\Proxy;
@@ -183,6 +184,44 @@ final class WhereFormulaTest extends OrmTestCase
         self::assertSame(3, $products[1]->orderCount);
     }
 
+    public function testDqlWhereInSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);  // max price=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]); // max price=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                 // no order items
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 60.00]); // max price=60
+
+        /** @var Product[] $products */
+        $products = $this->em->createQuery(
+            'SELECT p FROM ' . Product::class . ' p ' .
+            'WHERE p.id IN (' .
+            '    SELECT IDENTITY(oi.product) FROM ' . OrderItem::class . ' oi WHERE oi.price > :minPrice' .
+            ') ' .
+            'ORDER BY p.totalRevenue ASC'
+        )
+            ->setParameter('minPrice', 25.00)
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
+
+        // Product 2 (has price 30 > 25) and Product 4 (has price 50, 60 > 25) match
+        self::assertCount(2, $products);
+
+        self::assertSame('Product 2', $products[0]->name);
+        self::assertSame(50.0, $products[0]->totalRevenue);
+
+        self::assertSame('Product 4', $products[1]->name);
+        self::assertSame(110.0, $products[1]->totalRevenue);
+    }
+
     public function testFindWhereIn(): void
     {
         $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
@@ -248,6 +287,44 @@ final class WhereFormulaTest extends OrmTestCase
 
         self::assertSame('Product 4', $products[1]->name);
         self::assertSame(2, $products[1]->orderCount);
+    }
+
+    public function testDqlWhereNotInSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);  // max price=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]); // max price=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                 // no order items
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 60.00]); // max price=60
+
+        /** @var Product[] $products */
+        $products = $this->em->createQuery(
+            'SELECT p FROM ' . Product::class . ' p ' .
+            'WHERE p.id NOT IN (' .
+            '    SELECT IDENTITY(oi.product) FROM ' . OrderItem::class . ' oi WHERE oi.price > :minPrice' .
+            ') ' .
+            'ORDER BY p.name ASC'
+        )
+            ->setParameter('minPrice', 25.00)
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
+
+        // Product 1 (max price=10) and Product 3 (no items) do NOT have price > 25
+        self::assertCount(2, $products);
+
+        self::assertSame('Product 1', $products[0]->name);
+        self::assertSame(15.0, $products[0]->totalRevenue);
+
+        self::assertSame('Product 3', $products[1]->name);
+        self::assertSame(0.0, $products[1]->totalRevenue);
     }
 
     public function testDqlWhereIsNull(): void
@@ -347,6 +424,64 @@ final class WhereFormulaTest extends OrmTestCase
 
         self::assertSame('Product 2', $products[1]->name);
         self::assertSame(20.0, $products[1]->maxItemPrice);
+    }
+
+    public function testDqlWhereExists(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // orderCount=2
+
+        /** @var Product[] $products */
+        $products = $this->em->createQuery(
+            'SELECT p FROM ' . Product::class . ' p ' .
+            'WHERE EXISTS (SELECT 1 FROM ' . Product::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > :min) ' .
+            'ORDER BY p.orderCount ASC'
+        )
+            ->setParameter('min', 1)
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Returned the required amount of products
+        self::assertCount(2, $products);
+
+        self::assertSame('Product 4', $products[0]->name);
+        self::assertSame(2, $products[0]->orderCount);
+
+        self::assertSame('Product 1', $products[1]->name);
+        self::assertSame(3, $products[1]->orderCount);
+    }
+
+    public function testDqlWhereNotExists(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // orderCount=2
+
+        /** @var Product[] $products */
+        $products = $this->em->createQuery(
+            'SELECT p FROM ' . Product::class . ' p ' .
+            'WHERE NOT EXISTS (SELECT 1 FROM ' . Product::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > :min) ' .
+            'ORDER BY p.orderCount ASC'
+        )
+            ->setParameter('min', 1)
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Returned the required amount of products
+        self::assertCount(2, $products);
+
+        self::assertSame('Product 3', $products[0]->name);
+        self::assertSame(0, $products[0]->orderCount);
+
+        self::assertSame('Product 2', $products[1]->name);
+        self::assertSame(1, $products[1]->orderCount);
     }
 
     /**
