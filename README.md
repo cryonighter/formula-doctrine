@@ -376,6 +376,46 @@ $result = $entityManager
 > have no related records.
 
 
+### CASE WHEN expressions
+
+Formula fields can be used inside `CASE WHEN ... THEN ... END` expressions
+directly in DQL — for categorisation, conditional sorting and custom labels:
+
+```php
+// Categorise customers by revenue tier
+$result = $entityManager
+   ->createQuery('
+        SELECT c.name, c.totalRevenue,
+            CASE
+                WHEN c.totalRevenue = 0    THEN \'none\'
+                WHEN c.totalRevenue < 500  THEN \'low\'
+                WHEN c.totalRevenue < 5000 THEN \'medium\'
+                ELSE                            \'high\'
+            END as revenueCategory
+        FROM App\Entity\Customer c
+        ORDER BY c.totalRevenue ASC
+  ')
+  ->getResult();
+
+// Result example:
+// [
+//   ['name' => 'Alice', 'totalRevenue' => 0.0,    'revenueCategory' => 'none'],
+//   ['name' => 'Bob',   'totalRevenue' => 320.0,  'revenueCategory' => 'low'],
+//   ['name' => 'Carol', 'totalRevenue' => 1500.0, 'revenueCategory' => 'medium'],
+//   ['name' => 'Dave',  'totalRevenue' => 9800.0, 'revenueCategory' => 'high'],
+// ]
+
+// CASE WHEN in ORDER BY — push inactive customers to the end
+$result = $entityManager
+    ->createQuery('
+        SELECT c.name, c.orderCount
+        FROM App\Entity\Customer c
+        ORDER BY CASE WHEN c.orderCount = 0 THEN 1 ELSE 0 END ASC, c.orderCount DESC
+    ')
+    ->getResult();
+```
+
+
 ### Nullable fields
 
 If a formula can return `NULL` (e.g. `MAX` on an empty set),

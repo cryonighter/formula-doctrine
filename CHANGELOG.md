@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.2.1] - 2026-06-17
+### Added
+- Support CASE WHEN expressions
+
 ## [1.2.0] - 2026-06-16
 ### Added
 - Support DQL queries in the formula attribute
@@ -55,3 +59,4 @@ This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 [1.1.3]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.3
 [1.1.4]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.4
 [1.2.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.0
+[1.2.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.1

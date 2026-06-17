@@ -66,6 +66,8 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     final protected function applyFormulas(string $sql, SelectStatement $ast): string
     {
+        $rootTableName = $this->getRootTableName($ast->fromClause);
+
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
                 $columnName = "$sqlTableAlias.$meta->alias";
@@ -84,10 +86,14 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                     continue;
                 }
 
+                // For example: "p0_.total AS total_1,"
                 $columnNameEscaped = preg_quote($columnName);
                 $regExp = "/$columnNameEscaped\s+(AS|as)\s+(\w+)([\s,])/";
+
                 preg_match($regExp, $sql, $matches);
 
+                // If the field is not declared in SELECT, it may appear later (in ORDER BY, GROUP BY, HAVING)
+                // In this case, we won't have an alias and will have to execute the formula subquery every time
                 if (empty($matches)) {
                     $sql = str_replace($columnName, $formulaSql, $sql);
 
@@ -96,8 +102,26 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
                 $columnAlias = $matches[2];
 
-                $sql = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sql, 1);
-                $sql = str_replace($columnName, $columnAlias, $sql);
+                // TODO: There might be a problem with the recursive query!
+                // TODO: Maybe this should be done after the JOIN?
+                $sqlArr = explode(" FROM $rootTableName ", $sql);
+
+                if (count($sqlArr) !== 2) {
+                    throw new RuntimeException('Unexpected SQL query structure');
+                }
+
+                // Replacing a field declaration with a formula in SELECT (before FROM)
+                $sqlArr[0] = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sqlArr[0]);
+
+                // Replace references to the field with a formula in SELECT (before FROM)
+                // Unfortunately, it is not possible to use aliases in SELECT, even if they are declared earlier
+                // For example: "CASE WHEN p0_.total < 50 THEN 'low' ELSE 'high' END AS sclr_2"
+                $sqlArr[0] = str_replace($columnName, $formulaSql, $sqlArr[0]);
+
+                // Replace other references to the formula field with an alias (after FROM)
+                $sqlArr[1] = str_replace($columnName, $columnAlias, $sqlArr[1]);
+
+                $sql = implode(" FROM $rootTableName ", $sqlArr);
             }
         }
 
@@ -210,11 +234,28 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
     private function resolveSqlAliasByDqlAlias(string $dqlAlias, string $entityClass): string
     {
-        $tableName = $this->getQuery()
+        return $this->getSQLTableAlias($this->resolveTableName($entityClass), $dqlAlias);
+    }
+
+    private function resolveTableName(string $entityClass): string
+    {
+        return $this->getQuery()
             ->getEntityManager()
             ->getClassMetadata($entityClass)
             ->getTableName();
+    }
 
-        return $this->getSQLTableAlias($tableName, $dqlAlias);
+    private function getRootTableName(FromClause $fromClause): string
+    {
+        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
+            // Root alias declaration (FROM clause)
+            $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
+
+            if ($rangeDeclaration !== null) {
+                return $this->resolveTableName($rangeDeclaration->abstractSchemaName);
+            }
+        }
+
+        throw new RuntimeException('No root table alias found in FROM clause');
     }
 }
