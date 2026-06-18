@@ -484,6 +484,44 @@ final class WhereFormulaTest extends OrmTestCase
         self::assertSame(1, $products[1]->orderCount);
     }
 
+    public function testDqlWhereEqualsScalarSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [25.00, 35.00]);        // totalRevenue=60
+
+        /** @var Product[] $products */
+        $products = $this->em->createQuery(
+            'SELECT p FROM ' . Product::class . ' p ' .
+            'WHERE p.totalRevenue = (' .
+            '    SELECT MAX(p2.totalRevenue) FROM ' . Product::class . ' p2' .
+            ') ' .
+            'ORDER BY p.name ASC'
+        )
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Formula appears twice: once in WHERE left-hand side, once in subquery MAX()
+        self::assertSame(2, substr_count($mainSql, $subSql));
+
+        // Product 4 and Product 5 both have the maximum totalRevenue=60
+        self::assertCount(2, $products);
+
+        self::assertSame('Product 4', $products[0]->name);
+        self::assertSame(60.0, $products[0]->totalRevenue);
+
+        self::assertSame('Product 5', $products[1]->name);
+        self::assertSame(60.0, $products[1]->totalRevenue);
+    }
+
     /**
      * Helper method to create a review and return its ID
      */

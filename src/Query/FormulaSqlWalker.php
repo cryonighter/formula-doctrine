@@ -244,12 +244,23 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
         }
 
         if ($conditionalExpression instanceof ConditionalPrimary) {
+            $simpleConditionalExpression = $conditionalExpression->simpleConditionalExpression;
+
             // The subselect property contains 4 classes (ExistsExpression, InSubselectExpression, etc)
             // Checking it using instanceof is inconvenient, it's easier to use isset
-            $subselect = $conditionalExpression->simpleConditionalExpression?->subselect ?? null;
+            if (isset($simpleConditionalExpression?->subselect)) {
+                return $this->collectSqlAliases($simpleConditionalExpression?->subselect);
+            }
 
-            if ($subselect) {
-                return $this->collectSqlAliases($subselect);
+            if ($simpleConditionalExpression instanceof ComparisonExpression) {
+                $leftExpression = $simpleConditionalExpression->leftExpression;
+                $rightExpression = $simpleConditionalExpression->rightExpression;
+
+                return array_merge(
+                    [],
+                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
+                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
+                );
             }
         }
 
