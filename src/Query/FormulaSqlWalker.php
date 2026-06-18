@@ -7,6 +7,7 @@ use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Doctrine\ORM\Query\AST\ComparisonExpression;
 use Doctrine\ORM\Query\AST\ConditionalFactor;
 use Doctrine\ORM\Query\AST\ConditionalPrimary;
+use Doctrine\ORM\Query\AST\ConditionalTerm;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\HavingClause;
@@ -190,44 +191,14 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
         $aliases = $this->collectFromSqlAliases($ast instanceof SelectStatement ? $ast->fromClause : $ast->subselectFromClause);
 
         if ($ast->whereClause) {
-            $aliases = array_merge($aliases, $this->collectWhereSqlAliases($ast->whereClause));
+            $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->whereClause));
         }
 
         if ($ast->havingClause) {
-            $aliases = array_merge($aliases, $this->collectHavingSqlAliases($ast->havingClause));
+            $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->havingClause));
         }
 
         return array_unique($aliases, SORT_REGULAR);
-    }
-
-    private function collectHavingSqlAliases(HavingClause $havingClause): array
-    {
-        $aliases = [];
-
-        $conditionalExpression = $havingClause->conditionalExpression;
-
-        // I don't know if this case exists for HAVING or not
-        // I added it in conjunction with WHERE just in case
-        if ($conditionalExpression instanceof ConditionalFactor) {
-            $conditionalExpression = $conditionalExpression->conditionalPrimary;
-        }
-
-        if ($conditionalExpression instanceof ConditionalPrimary) {
-            $simpleConditionalExpression = $conditionalExpression->simpleConditionalExpression;
-
-            if ($simpleConditionalExpression instanceof ComparisonExpression) {
-                $leftExpression = $simpleConditionalExpression->leftExpression;
-                $rightExpression = $simpleConditionalExpression->rightExpression;
-
-                $aliases = array_merge(
-                    $aliases,
-                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
-                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
-                );
-            }
-        }
-
-        return $aliases;
     }
 
     /**
@@ -235,36 +206,54 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      *
      * @return array<array<string, string>>
      */
-    private function collectWhereSqlAliases(WhereClause $whereClause): array
+    private function collectWhereOrHavingSqlAliases(WhereClause|HavingClause $whereOrHavingClause): array
     {
-        $conditionalExpression = $whereClause->conditionalExpression;
+        $aliases = [];
 
-        if ($conditionalExpression instanceof ConditionalFactor) {
-            $conditionalExpression = $conditionalExpression->conditionalPrimary;
+        $conditionalExpression = $whereOrHavingClause->conditionalExpression;
+
+        // ConditionalTerm is a node that contains multiple conditional expressions, like AND/OR
+        $conditionalFactors = match ($conditionalExpression instanceof ConditionalTerm) {
+            true => $conditionalExpression->conditionalFactors,
+            false => [$conditionalExpression],
+        };
+
+        foreach ($conditionalFactors as $conditionalFactor) {
+            $conditional = match ($conditionalFactor instanceof ConditionalFactor)  {
+                true => $conditionalFactor->conditionalPrimary,
+                false => $conditionalFactor,
+            };
+
+            // ConditionalPrimary is a node that contains a single conditional expression, like BETWEEN/IN/EXISTS
+            if ($conditional instanceof ConditionalPrimary) {
+                $simpleConditionalExpression = $conditional->simpleConditionalExpression;
+
+                // The subselect property contains 4 classes (ExistsExpression, InSubselectExpression, etc)
+                // Checking it using instanceof is inconvenient, it's easier to use isset
+                if (isset($simpleConditionalExpression?->subselect)) {
+                    $aliases = array_merge(
+                        $aliases,
+                        $this->collectSqlAliases($simpleConditionalExpression?->subselect)
+                    );
+
+                    continue;
+                }
+
+                // ComparisonExpression is a node that contains a comparison operator (like =, <, >, etc)
+                if ($simpleConditionalExpression instanceof ComparisonExpression) {
+                    $leftExpression = $simpleConditionalExpression->leftExpression;
+                    $rightExpression = $simpleConditionalExpression->rightExpression;
+
+                    $aliases = array_merge(
+                        $aliases,
+                        isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
+                        isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
+                    );
+                }
+            }
         }
 
-        if ($conditionalExpression instanceof ConditionalPrimary) {
-            $simpleConditionalExpression = $conditionalExpression->simpleConditionalExpression;
-
-            // The subselect property contains 4 classes (ExistsExpression, InSubselectExpression, etc)
-            // Checking it using instanceof is inconvenient, it's easier to use isset
-            if (isset($simpleConditionalExpression?->subselect)) {
-                return $this->collectSqlAliases($simpleConditionalExpression?->subselect);
-            }
-
-            if ($simpleConditionalExpression instanceof ComparisonExpression) {
-                $leftExpression = $simpleConditionalExpression->leftExpression;
-                $rightExpression = $simpleConditionalExpression->rightExpression;
-
-                return array_merge(
-                    [],
-                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
-                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
-                );
-            }
-        }
-
-        return [];
+        return $aliases;
     }
 
     /**
