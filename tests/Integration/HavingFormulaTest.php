@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 
 final class HavingFormulaTest extends OrmTestCase
@@ -122,5 +123,89 @@ final class HavingFormulaTest extends OrmTestCase
 
         self::assertSame('Alpha', $result[2]['name']);
         self::assertSame(1, $result[2]['orderCount']);
+    }
+
+    public function testDqlHavingWithExistsSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3, maxItemPrice=15
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [5.00, 10.00, 15.00]); // orderCount=3, maxItemPrice=15
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [20.00, 25.00]);        // orderCount=2, maxItemPrice=25
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00]);               // orderCount=1, maxItemPrice=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'));                        // orderCount=0, maxItemPrice=null
+
+        /** @var array $result */
+        $result = $this->em->createQuery(
+            'SELECT p.orderCount, COUNT(p.id) as cnt ' .
+            'FROM ' . Product::class . ' p ' .
+            'GROUP BY p.orderCount ' .
+            'HAVING EXISTS (' .
+            '    SELECT 1 FROM ' . OrderItem::class . ' oi WHERE oi.product = p.id AND oi.price > :minPrice' .
+            ') ' .
+            'ORDER BY p.orderCount ASC'
+        )
+            ->setParameter('minPrice', 20.00)
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once
+        self::assertSame(1, substr_count($mainSql, $subSql));
+
+        // Groups with at least one order item priced > 20:
+        // orderCount=2 (Product 3: prices 20,25 — 25 > 20) and orderCount=1 (Product 4: price 30 > 20)
+        self::assertCount(2, $result);
+
+        self::assertSame(1, $result[0]['orderCount']);
+        self::assertSame(1, $result[0]['cnt']);
+
+        self::assertSame(2, $result[1]['orderCount']);
+        self::assertSame(1, $result[1]['cnt']);
+    }
+
+    public function testDqlHavingWithScalarSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [5.00, 10.00, 15.00]); // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [20.00, 25.00]);       // orderCount=2, totalRevenue=45
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [5.00]);               // orderCount=1, totalRevenue=5
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'));                       // orderCount=0, totalRevenue=0
+
+        /** @var array $result */
+        $result = $this->em->createQuery(
+            'SELECT p.orderCount, SUM(p.totalRevenue) as groupRevenue ' .
+            'FROM ' . Product::class . ' p ' .
+            'GROUP BY p.orderCount ' .
+            'HAVING SUM(p.totalRevenue) > (' .
+            '    SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2' .
+            ') ' .
+            'ORDER BY p.orderCount ASC'
+        )
+            ->getResult();
+
+        // Exactly 1 eagerly query via DQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Verify that the formula was only executed once per usage
+        self::assertSame(3, substr_count($mainSql, $subSql));
+
+        // AVG(totalRevenue) across all 5 products = (30+30+45+5+0)/5 = 22
+        // Groups: orderCount=0 → SUM=0, orderCount=1 → SUM=5, orderCount=2 → SUM=45, orderCount=3 → SUM=60
+        // Only groups with SUM > 22: orderCount=2 (45) and orderCount=3 (60)
+        self::assertCount(2, $result);
+
+        self::assertSame(2, $result[0]['orderCount']);
+        self::assertSame(45, $result[0]['groupRevenue']);
+
+        self::assertSame(3, $result[1]['orderCount']);
+        self::assertSame(60, $result[1]['groupRevenue']);
     }
 }

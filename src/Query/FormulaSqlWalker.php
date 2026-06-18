@@ -4,10 +4,12 @@ namespace Cryonighter\FormulaDoctrine\Query;
 
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
+use Doctrine\ORM\Query\AST\ComparisonExpression;
 use Doctrine\ORM\Query\AST\ConditionalFactor;
 use Doctrine\ORM\Query\AST\ConditionalPrimary;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
+use Doctrine\ORM\Query\AST\HavingClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\Subselect;
@@ -191,9 +193,42 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $aliases = array_merge($aliases, $this->collectWhereSqlAliases($ast->whereClause));
         }
 
+        if ($ast->havingClause) {
+            $aliases = array_merge($aliases, $this->collectHavingSqlAliases($ast->havingClause));
+        }
+
         return array_unique($aliases, SORT_REGULAR);
     }
 
+    private function collectHavingSqlAliases(HavingClause $havingClause): array
+    {
+        $aliases = [];
+
+        $conditionalExpression = $havingClause->conditionalExpression;
+
+        // I don't know if this case exists for HAVING or not
+        // I added it in conjunction with WHERE just in case
+        if ($conditionalExpression instanceof ConditionalFactor) {
+            $conditionalExpression = $conditionalExpression->conditionalPrimary;
+        }
+
+        if ($conditionalExpression instanceof ConditionalPrimary) {
+            $simpleConditionalExpression = $conditionalExpression->simpleConditionalExpression;
+
+            if ($simpleConditionalExpression instanceof ComparisonExpression) {
+                $leftExpression = $simpleConditionalExpression->leftExpression;
+                $rightExpression = $simpleConditionalExpression->rightExpression;
+
+                $aliases = array_merge(
+                    $aliases,
+                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
+                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
+                );
+            }
+        }
+
+        return $aliases;
+    }
 
     /**
      * Recursively collects all SQL aliases from the WHERE clause.
