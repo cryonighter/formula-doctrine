@@ -1,6 +1,6 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Middleware;
 
 use Doctrine\DBAL\Driver;
 use Doctrine\DBAL\Driver\Connection;
