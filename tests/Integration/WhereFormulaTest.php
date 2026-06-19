@@ -11,11 +11,11 @@ final class WhereFormulaTest extends OrmTestCase
 {
     public function testDqlWhere(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00, 40.00, 50.00, 60.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);         // orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);                      // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                               // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);               // orderCount=2
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00, 40.00, 50.00, 60.00]); // orderCount=4
 
         /** @var Product[] $products */
         $products = $this->em->createQuery('SELECT p FROM ' . Product::class . ' p WHERE p.orderCount >= :orderCountFrom AND p.orderCount <= :orderCountTo')
@@ -46,11 +46,11 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testFindWhere(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 35.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00, 45.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 35.00]);       // orderCount=2
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                       // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00, 45.00]);       // orderCount=2
 
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(['orderCount' => 2]);
@@ -78,10 +78,10 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testDqlJoinWhere(): void
     {
-        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 1'), [5.00, 10.00, 15.00]);
-        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 2'), [20.00]);
-        $productId3 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 3'));
-        $productId4 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 4'), [25.00, 35.00]);
+        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
+        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 2'), [20.00]);              // orderCount=1
+        $productId3 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 3'));                       // orderCount=0
+        $productId4 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 4'), [25.00, 35.00]);       // orderCount=2
 
         $this->createReview('Test review 1', $productId1);
         $this->createReview('Test review 2', $productId2);
@@ -291,10 +291,10 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testDqlWhereNotInSubquery(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);  // max price=10
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]); // max price=30
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                 // no order items
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 60.00]); // max price=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);  // orderCount=2, maxItemPrice=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]); // orderCount=2, maxItemPrice=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                 // orderCount=0, maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 60.00]); // orderCount=2, maxItemPrice=60
 
         /** @var Product[] $products */
         $products = $this->em->createQuery(
@@ -329,10 +329,10 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testDqlWhereIsNull(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // maxItemPrice=10
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // maxItemPrice=20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // maxItemPrice=null
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // orderCount=2, maxItemPrice=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // orderCount=1, maxItemPrice=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // orderCount=0, maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // orderCount=0, maxItemPrice=null
 
         /** @var Product[] $products */
         $products = $this->em->createQuery(
@@ -362,10 +362,10 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testFindWhereIsNull(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // maxItemPrice=10
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // maxItemPrice=20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // maxItemPrice=null
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // orderCount=2, maxItemPrice=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // orderCount=1, maxItemPrice=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // orderCount=0, maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // orderCount=0, maxItemPrice=null
 
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(
@@ -395,10 +395,10 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testDqlWhereIsNotNull(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // maxItemPrice=10
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // maxItemPrice=20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // maxItemPrice=null
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]); // orderCount=2, maxItemPrice=10
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);       // orderCount=1, maxItemPrice=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                // orderCount=0, maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                // orderCount=0, maxItemPrice=null
 
         /** @var Product[] $products */
         $products = $this->em->createQuery(
@@ -486,11 +486,11 @@ final class WhereFormulaTest extends OrmTestCase
 
     public function testDqlWhereEqualsScalarSubquery(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // totalRevenue=30
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // totalRevenue=20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // totalRevenue=0
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // totalRevenue=60
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [25.00, 35.00]);        // totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // orderCount=2, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [25.00, 35.00]);       // orderCount=2, totalRevenue=60
 
         /** @var Product[] $products */
         $products = $this->em->createQuery(

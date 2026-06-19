@@ -58,23 +58,11 @@ final class PaginationQueryTest extends OrmTestCase
 
     public function createManyProduct(): void
     {
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 1'),
-        );
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 2'),
-        );
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 3'),
-        );
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 4'),
-        );
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 5'),
-        );
-        $this->createProductWithOrderItems(
-            $this->makeProduct('Product 6'),
-        );
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 6'));
     }
 }

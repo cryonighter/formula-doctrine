@@ -8,11 +8,11 @@ final class HavingFormulaTest extends OrmTestCase
 {
     public function testDqlHavingWithFormulaField(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00, 45.00, 50.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // orderCount=2, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00, 45.00, 50.00]); // orderCount=3, totalRevenue=135
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -46,11 +46,11 @@ final class HavingFormulaTest extends OrmTestCase
 
     public function testDqlHavingWithAggregateAndFormula(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [35.00, 40.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);  // orderCount=2, totalRevenue=15
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);        // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00]); // orderCount=2, totalRevenue=55
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [35.00, 40.00]); // orderCount=2, totalRevenue=75
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'));                 // orderCount=0, totalRevenue=0
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -83,11 +83,11 @@ final class HavingFormulaTest extends OrmTestCase
 
     public function testDqlHavingWithComplexCondition(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Alpha'), [5.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Beta'), [10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Gamma'), [20.00, 25.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Delta'), [30.00, 35.00, 40.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Epsilon'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);                // orderCount=1, totalRevenue=5
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [10.00, 15.00]);        // orderCount=2, totalRevenue=25
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [20.00, 25.00]);        // orderCount=2, totalRevenue=45
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00, 35.00, 40.00]); // orderCount=3, totalRevenue=105
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'));                        // orderCount=0, totalRevenue=0
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -114,13 +114,13 @@ final class HavingFormulaTest extends OrmTestCase
         // Check filtered grouped results
         self::assertCount(3, $result);
 
-        self::assertSame('Beta', $result[0]['name']);
+        self::assertSame('Product 2', $result[0]['name']);
         self::assertSame(2, $result[0]['orderCount']);
 
-        self::assertSame('Gamma', $result[1]['name']);
+        self::assertSame('Product 3', $result[1]['name']);
         self::assertSame(2, $result[1]['orderCount']);
 
-        self::assertSame('Alpha', $result[2]['name']);
+        self::assertSame('Product 1', $result[2]['name']);
         self::assertSame(1, $result[2]['orderCount']);
     }
 

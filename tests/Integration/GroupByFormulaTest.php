@@ -8,12 +8,12 @@ final class GroupByFormulaTest extends OrmTestCase
 {
     public function testDqlGroupByFormulaField(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 6'), [45.00, 50.00, 55.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // orderCount=2
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00]);               // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 6'), [45.00, 50.00, 55.00]); // orderCount=3
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -49,13 +49,13 @@ final class GroupByFormulaTest extends OrmTestCase
 
     public function testDqlGroupByMultipleFields(): void
     {
-        $product1 = $this->makeProduct('Product A');
-        $product2 = $this->makeProduct('Product B');
-        $product3 = $this->makeProduct('Product A');
+        $product1 = $this->makeProduct('Product 1');
+        $product2 = $this->makeProduct('Product 2');
+        $product3 = $this->makeProduct('Product 1');
 
-        $this->createProductWithOrderItems($product1, [5.00, 10.00]);
-        $this->createProductWithOrderItems($product2, [20.00, 25.00]);
-        $this->createProductWithOrderItems($product3, [30.00, 35.00]);
+        $this->createProductWithOrderItems($product1, [5.00, 10.00]);  // orderCount=2
+        $this->createProductWithOrderItems($product2, [20.00, 25.00]); // orderCount=2
+        $this->createProductWithOrderItems($product3, [30.00, 35.00]); // orderCount=2
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -76,10 +76,10 @@ final class GroupByFormulaTest extends OrmTestCase
         // Check grouped results
         self::assertCount(2, $result);
 
-        self::assertSame('Product A', $result[0]['name']);
+        self::assertSame('Product 1', $result[0]['name']);
         self::assertSame(2, $result[0]['orderCount']);
 
-        self::assertSame('Product B', $result[1]['name']);
+        self::assertSame('Product 2', $result[1]['name']);
         self::assertSame(2, $result[1]['orderCount']);
     }
 }

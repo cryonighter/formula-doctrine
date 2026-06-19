@@ -11,9 +11,7 @@ final class UpdateAndDeleteQueryTest extends OrmTestCase
      */
     public function testDqlUpdateQuery(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Old Name'),
-        );
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Old Name'));
 
         $productClassName = Product::class;
 
@@ -35,9 +33,7 @@ final class UpdateAndDeleteQueryTest extends OrmTestCase
      */
     public function testDqlDeleteQuery(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Product to Delete'),
-        );
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Product to Delete'));
 
         $productClassName = Product::class;
 
@@ -59,17 +55,9 @@ final class UpdateAndDeleteQueryTest extends OrmTestCase
      */
     public function testDqlDeleteMultipleQuery(): void
     {
-        $product1Id = $this->createProductWithOrderItems(
-            $this->makeProduct('Product 1'),
-        );
-
-        $product2Id = $this->createProductWithOrderItems(
-            $this->makeProduct('Product 2'),
-        );
-
-        $product3Id = $this->createProductWithOrderItems(
-            $this->makeProduct('Product 3'),
-        );
+        $product1Id = $this->createProductWithOrderItems($this->makeProduct('Product 1'));
+        $product2Id = $this->createProductWithOrderItems($this->makeProduct('Product 2'));
+        $product3Id = $this->createProductWithOrderItems($this->makeProduct('Product 3'));
 
         $productClassName = Product::class;
 

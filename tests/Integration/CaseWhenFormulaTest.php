@@ -8,11 +8,11 @@ final class CaseWhenFormulaTest extends OrmTestCase
 {
     public function testDqlCaseWhenWithFormulaField(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // totalRevenue=30,  orderCount=3
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // totalRevenue=20,  orderCount=1
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // totalRevenue=0,   orderCount=0
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // totalRevenue=60,  orderCount=2
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [45.00, 50.00, 55.00]); // totalRevenue=150, orderCount=3
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // orderCount=2, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [45.00, 50.00, 55.00]); // orderCount=3, totalRevenue=150
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -90,10 +90,10 @@ final class CaseWhenFormulaTest extends OrmTestCase
 
     public function testDqlCaseWhenInOrderBy(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product A'), [5.00]);         // orderCount=1
-        $this->createProductWithOrderItems($this->makeProduct('Product B'), [10.00, 20.00]); // orderCount=2
-        $this->createProductWithOrderItems($this->makeProduct('Product C'));                 // orderCount=0
-        $this->createProductWithOrderItems($this->makeProduct('Product D'), [30.00, 40.00]); // orderCount=2
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);         // orderCount=1
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [10.00, 20.00]); // orderCount=2
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                 // orderCount=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00, 40.00]); // orderCount=2
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -109,9 +109,9 @@ final class CaseWhenFormulaTest extends OrmTestCase
         // Products with orders first (sorted by orderCount DESC), then products without orders
         self::assertCount(4, $result);
 
-        self::assertSame('Product B', $result[0]['name']); // orderCount=2
-        self::assertSame('Product D', $result[1]['name']); // orderCount=2
-        self::assertSame('Product A', $result[2]['name']); // orderCount=1
-        self::assertSame('Product C', $result[3]['name']); // orderCount=0, pushed to end
+        self::assertSame('Product 2', $result[0]['name']); // orderCount=2
+        self::assertSame('Product 4', $result[1]['name']); // orderCount=2
+        self::assertSame('Product 1', $result[2]['name']); // orderCount=1
+        self::assertSame('Product 3', $result[3]['name']); // orderCount=0, pushed to end
     }
 }

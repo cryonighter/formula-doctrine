@@ -28,11 +28,11 @@ final class AggregationFunctionTest extends OrmTestCase
 
     public function createManyProduct(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // 30
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // 20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // 0
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // 60
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00]);               // 40
-        $this->createProductWithOrderItems($this->makeProduct('Product 6'), [45.00, 50.00, 55.00]); // 150
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // orderCount=2, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [40.00]);               // orderCount=1, totalRevenue=40
+        $this->createProductWithOrderItems($this->makeProduct('Product 6'), [45.00, 50.00, 55.00]); // orderCount=3, totalRevenue=150
     }
 }

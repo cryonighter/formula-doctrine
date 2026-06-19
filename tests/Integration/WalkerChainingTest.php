@@ -50,10 +50,7 @@ final class WalkerChainingTest extends OrmTestCase
 
     public function testSqlWalkerChainingWithFormulaValues(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Popular Product'),
-            [10.00, 20.00, 30.00],
-        );
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Popular Product'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60
 
         $loaded = $this->getProduct($productId);
 
@@ -75,9 +72,7 @@ final class WalkerChainingTest extends OrmTestCase
 
     public function testSqlWalkerChainingWithoutFormulaValues(): void
     {
-        $productId = $this->createProductWithOrderItems(
-            $this->makeProduct('Empty Product'),
-        );
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Empty Product'));
 
         $loaded = $this->getProduct($productId);
 
