@@ -8,10 +8,10 @@ final class OrderByFormulaTest extends OrmTestCase
 {
     public function testDqlOrderByAsc(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // orderCount=2, totalRevenue=60
 
         /** @var Product[] $products */
         $products = $this->em->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.orderCount ASC')
@@ -46,10 +46,10 @@ final class OrderByFormulaTest extends OrmTestCase
 
     public function testFindByOrderAsc(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00, 35.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00]);         // orderCount=2, totalRevenue=15
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00, 35.00]); // orderCount=3, totalRevenue=90
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'));                        // orderCount=0, totalRevenue=0
 
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(
@@ -86,9 +86,9 @@ final class OrderByFormulaTest extends OrmTestCase
 
     public function testDqlOrderByDesc(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 40.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);                // orderCount=1, totalRevenue=5
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]); // orderCount=3, totalRevenue=75
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 45.00]);        // orderCount=2, totalRevenue=80
 
         /** @var Product[] $products */
         $products = $this->em->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.orderCount DESC')
@@ -120,9 +120,9 @@ final class OrderByFormulaTest extends OrmTestCase
 
     public function testFindByOrderDesc(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 40.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);                // orderCount=1, totalRevenue=5
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]); // orderCount=3, totalRevenue=75
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 45.00]);        // orderCount=2, totalRevenue=80
 
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(
@@ -156,14 +156,14 @@ final class OrderByFormulaTest extends OrmTestCase
 
     public function testDqlOrderByWithWhereCondition(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 35.00, 40.00, 45.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 55.00]);
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);         // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);                      // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 35.00, 40.00, 45.00]); // orderCount=4, totalRevenue=145
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 55.00]);               // orderCount=2, totalRevenue=105
 
         /** @var Product[] $products */
         $products = $this->em->createQuery(
-            'SELECT p FROM ' . Product::class . ' p WHERE p.orderCount >= :minCount ORDER BY p.orderCount DESC'
+            'SELECT p FROM ' . Product::class . ' p WHERE p.orderCount >= :minCount ORDER BY p.totalRevenue DESC'
         )
             ->setParameter('minCount', 2)
             ->getResult();
@@ -184,26 +184,31 @@ final class OrderByFormulaTest extends OrmTestCase
         // The products are ordered correctly by orderCount DESC
         self::assertSame('Product 3', $products[0]->name);
         self::assertSame(4, $products[0]->orderCount);
+        self::assertEqualsWithDelta(145.00, $products[0]->totalRevenue, 0.001);
 
-        self::assertSame('Product 1', $products[1]->name);
-        self::assertSame(3, $products[1]->orderCount);
+        self::assertSame('Product 4', $products[1]->name);
+        self::assertSame(2, $products[1]->orderCount);
+        self::assertEqualsWithDelta(105.00, $products[1]->totalRevenue, 0.001);
 
-        self::assertSame('Product 4', $products[2]->name);
-        self::assertSame(2, $products[2]->orderCount);
+        self::assertSame('Product 1', $products[2]->name);
+        self::assertSame(3, $products[2]->orderCount);
+        self::assertEqualsWithDelta(30.00, $products[2]->totalRevenue, 0.001);
     }
 
     public function testFindByWithWhereAndOrder(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Alpha'), [5.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Beta'), [10.00, 15.00, 20.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Gamma'), [25.00, 30.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Delta'), [35.00, 40.00, 45.00, 50.00]);
-        $this->createProductWithOrderItems($this->makeProduct('Epsilon'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00]);                       // orderCount=1, totalRevenue=5
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'));                               // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [20.00, 30.00]);               // orderCount=2, totalRevenue=50
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 15.00, 20.00]);        // orderCount=3, totalRevenue=45
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [25.00, 35.00]);               // orderCount=2, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 6'), [35.00, 40.00, 45.00, 50.00]); // orderCount=4, totalRevenue=170
+        $this->createProductWithOrderItems($this->makeProduct('Product 7'));                               // orderCount=0, totalRevenue=0
 
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(
             ['orderCount' => 2],
-            ['name' => 'ASC']
+            ['totalRevenue' => 'DESC']
         );
 
         // Exactly 1 eagerly query via DQL
@@ -217,10 +222,15 @@ final class OrderByFormulaTest extends OrmTestCase
         self::assertSame(1, substr_count($mainSql, $subSql));
 
         // Returned the filtered products
-        self::assertCount(1, $products);
+        self::assertCount(2, $products);
 
         // The field values are correct
-        self::assertSame('Gamma', $products[0]->name);
+        self::assertSame('Product 5', $products[0]->name);
         self::assertSame(2, $products[0]->orderCount);
+        self::assertEqualsWithDelta(60.00, $products[0]->totalRevenue, 0.001);
+
+        self::assertSame('Product 3', $products[1]->name);
+        self::assertSame(2, $products[1]->orderCount);
+        self::assertEqualsWithDelta(50.00, $products[1]->totalRevenue, 0.001);
     }
 }
