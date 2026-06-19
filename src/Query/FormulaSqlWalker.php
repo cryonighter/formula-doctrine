@@ -74,7 +74,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     final protected function applyFormulas(string $sql, SelectStatement $ast): string
     {
-        [$rootTableName, $rootTableAlias] = $this->getRootTableNameAndAlias($ast->fromClause);
+        $rootTableNameAndAlias = $this->getRootTableNameAndAliasAsString($ast->fromClause);
 
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
@@ -110,8 +110,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
                 $columnAlias = $matches[2];
 
-                // TODO: There might be a problem with the recursive query!
-                $sqlArr = explode(" FROM $rootTableName $rootTableAlias ", $sql);
+                $sqlArr = explode(" FROM $rootTableNameAndAlias ", $sql);
 
                 if (count($sqlArr) !== 2) {
                     throw new RuntimeException('Unexpected SQL query structure');
@@ -128,7 +127,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 // Replace other references to the formula field with an alias (after FROM)
                 $sqlArr[1] = str_replace($columnName, $columnAlias, $sqlArr[1]);
 
-                $sql = implode(" FROM $rootTableName $rootTableAlias ", $sqlArr);
+                $sql = implode(" FROM $rootTableNameAndAlias ", $sqlArr);
             }
         }
 
@@ -349,8 +348,10 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             ->getTableName();
     }
 
-    private function getRootTableNameAndAlias(FromClause $fromClause): array
+    private function getRootTableNameAndAliasAsString(FromClause $fromClause): string
     {
+        $rootTableNameAndAlias = [];
+
         foreach ($fromClause->identificationVariableDeclarations as $declaration) {
             // Root alias declaration (FROM clause)
             $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
@@ -362,10 +363,10 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 $tableName = $this->resolveTableName($entityClass);
                 $tableAlias = $this->getSQLTableAlias($tableName, $dqlAlias);
 
-                return [$tableName, $tableAlias];
+                $rootTableNameAndAlias[] = "$tableName $tableAlias";
             }
         }
 
-        throw new RuntimeException('No root table alias found in FROM clause');
+        return implode(', ', $rootTableNameAndAlias);
     }
 }
