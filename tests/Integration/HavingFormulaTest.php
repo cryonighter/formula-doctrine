@@ -2,7 +2,6 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 
 final class HavingFormulaTest extends OrmTestCase
@@ -127,11 +126,13 @@ final class HavingFormulaTest extends OrmTestCase
 
     public function testDqlHavingWithExistsSubquery(): void
     {
-        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3, maxItemPrice=15
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [5.00, 10.00, 15.00]); // orderCount=3, maxItemPrice=15
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [20.00, 25.00]);        // orderCount=2, maxItemPrice=25
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [30.00]);               // orderCount=1, maxItemPrice=30
-        $this->createProductWithOrderItems($this->makeProduct('Product 5'));                        // orderCount=0, maxItemPrice=null
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]);  // orderCount=3, totalRevenue=30
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [10.00, 15.00, 20.00]); // orderCount=3, totalRevenue=45
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00]);        // orderCount=2, totalRevenue=55
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [35.00]);               // orderCount=1, totalRevenue=35
+        $this->createProductWithOrderItems($this->makeProduct('Product 5'), [15.00, 20.00]);        // orderCount=2, totalRevenue=35
+        $this->createProductWithOrderItems($this->makeProduct('Product 6'));                        // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 7'), [15.00]);               // orderCount=1, totalRevenue=15
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -139,11 +140,12 @@ final class HavingFormulaTest extends OrmTestCase
             'FROM ' . Product::class . ' p ' .
             'GROUP BY p.orderCount ' .
             'HAVING EXISTS (' .
-            '    SELECT 1 FROM ' . OrderItem::class . ' oi WHERE oi.product = p.id AND oi.price > :minPrice' .
+            '    SELECT 1 FROM ' . Product::class . ' p2 ' .
+            '    WHERE p2.orderCount = p.orderCount AND p2.totalRevenue > :minRevenue' .
             ') ' .
             'ORDER BY p.orderCount ASC'
         )
-            ->setParameter('minPrice', 20.00)
+            ->setParameter('minRevenue', 30)
             ->getResult();
 
         // Exactly 1 eagerly query via DQL
@@ -153,18 +155,20 @@ final class HavingFormulaTest extends OrmTestCase
         $mainSql = $this->queryLogger->getQueries()[0];
         $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
 
-        // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        // Verify that the formula was executed only twice: once for p and once for p2
+        self::assertSame(2, substr_count($mainSql, $subSql));
 
-        // Groups with at least one order item priced > 20:
-        // orderCount=2 (Product 3: prices 20,25 — 25 > 20) and orderCount=1 (Product 4: price 30 > 20)
-        self::assertCount(2, $result);
+        // Groups where EXISTS a product with same orderCount AND totalRevenue > 30
+        self::assertCount(3, $result);
 
         self::assertSame(1, $result[0]['orderCount']);
-        self::assertSame(1, $result[0]['cnt']);
+        self::assertSame(2, $result[0]['cnt']);
 
         self::assertSame(2, $result[1]['orderCount']);
-        self::assertSame(1, $result[1]['cnt']);
+        self::assertSame(2, $result[1]['cnt']);
+
+        self::assertSame(3, $result[2]['orderCount']);
+        self::assertSame(2, $result[2]['cnt']);
     }
 
     public function testDqlHavingWithScalarSubquery(): void
