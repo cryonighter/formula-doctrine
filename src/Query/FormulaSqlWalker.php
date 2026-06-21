@@ -10,6 +10,7 @@ use Doctrine\ORM\Query\AST\ConditionalPrimary;
 use Doctrine\ORM\Query\AST\ConditionalTerm;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
+use Doctrine\ORM\Query\AST\GeneralCaseExpression;
 use Doctrine\ORM\Query\AST\HavingClause;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\ORM\Query\AST\SelectClause;
@@ -18,6 +19,7 @@ use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\Subselect;
 use Doctrine\ORM\Query\AST\SubselectFromClause;
 use Doctrine\ORM\Query\AST\UpdateStatement;
+use Doctrine\ORM\Query\AST\WhenClause;
 use Doctrine\ORM\Query\AST\WhereClause;
 use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
 use Doctrine\ORM\Query\Exec\PreparedExecutorFinalizer;
@@ -217,8 +219,50 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
         foreach ($selectClause->selectExpressions as $selectExpression) {
             /** @var SelectExpression $selectExpression */
-            if ($selectExpression->expression instanceof Subselect) {
-                $aliases = array_merge($aliases, $this->collectSqlAliases($selectExpression->expression));
+            $expression = $selectExpression->expression;
+
+            if ($expression instanceof Subselect) {
+                $aliases = array_merge($aliases, $this->collectSqlAliases($expression));
+            }
+
+            if ($expression instanceof GeneralCaseExpression) {
+                foreach ($expression->whenClauses as $whenClause) {
+                    if (!$whenClause instanceof WhenClause) {
+                        continue;
+                    }
+
+                    $conditionalExpression = $whenClause->caseConditionExpression;
+
+                    // ConditionalTerm is a node that contains multiple conditional expressions, like AND/OR
+                    $conditionalFactors = match ($conditionalExpression instanceof ConditionalTerm) {
+                        true => $conditionalExpression->conditionalFactors,
+                        false => [$conditionalExpression],
+                    };
+
+                    foreach ($conditionalFactors as $conditionalFactor) {
+                        $conditional = match ($conditionalFactor instanceof ConditionalFactor)  {
+                            true => $conditionalFactor->conditionalPrimary,
+                            false => $conditionalFactor,
+                        };
+
+                        // ConditionalPrimary is a node that contains a single conditional expression, like BETWEEN/IN/EXISTS
+                        if ($conditional instanceof ConditionalPrimary) {
+                            $simpleConditionalExpression = $conditional->simpleConditionalExpression;
+
+                            // ComparisonExpression is a node that contains a comparison operator (like =, <, >, etc)
+                            if ($simpleConditionalExpression instanceof ComparisonExpression) {
+                                $leftExpression = $simpleConditionalExpression->leftExpression;
+                                $rightExpression = $simpleConditionalExpression->rightExpression;
+
+                                $aliases = array_merge(
+                                    $aliases,
+                                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
+                                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
 

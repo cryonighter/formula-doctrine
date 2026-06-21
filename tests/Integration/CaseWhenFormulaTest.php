@@ -114,4 +114,60 @@ final class CaseWhenFormulaTest extends OrmTestCase
         self::assertSame('Product 1', $result[2]['name']); // orderCount=1
         self::assertSame('Product 3', $result[3]['name']); // orderCount=0, pushed to end
     }
+
+    public function testDqlCaseWhenWithSubquery(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
+
+        // AVG totalRevenue = (60+20+0+40)/4 = 30
+
+        /** @var array $result */
+        $result = $this->em->createQuery(
+            'SELECT p.name, p.totalRevenue, ' .
+            'CASE ' .
+            '    WHEN p.totalRevenue = 0 THEN \'none\' ' .
+            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) AND p.orderCount > 0 THEN \'above_avg\' ' .
+            '    ELSE \'below_avg\' ' .
+            'END as revenueStatus ' .
+            'FROM ' . Product::class . ' p ' .
+            'ORDER BY p.totalRevenue DESC'
+        )
+            ->getResult();
+
+        // Exactly 1 query - all formulas in one SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // The formula appears four times: once in the SELECT statement, twice in the CASE WHEN statement,
+        // and once in the AVG subquery. The ORDER BY statement must use the alias from the first SELECT statement.
+        self::assertSame(4, substr_count($mainSql, $subSql));
+
+        self::assertCount(4, $result);
+
+        // Product 1: totalRevenue=60 > AVG(30) → above_avg
+        self::assertSame('Product 1', $result[0]['name']);
+        self::assertSame(60.0, $result[0]['totalRevenue']);
+        self::assertSame('above_avg', $result[0]['revenueStatus']);
+
+        // Product 4: totalRevenue=40 > AVG(30) → above_avg
+        self::assertSame('Product 4', $result[1]['name']);
+        self::assertSame(40.0, $result[1]['totalRevenue']);
+        self::assertSame('above_avg', $result[1]['revenueStatus']);
+
+        // Product 2: totalRevenue=20 < AVG(30) → below_avg
+        self::assertSame('Product 2', $result[2]['name']);
+        self::assertSame(20.0, $result[2]['totalRevenue']);
+        self::assertSame('below_avg', $result[2]['revenueStatus']);
+
+        // Product 3: totalRevenue=0 → none (checked before AVG comparison)
+        self::assertSame('Product 3', $result[3]['name']);
+        self::assertSame(0.0, $result[3]['totalRevenue']);
+        self::assertSame('none', $result[3]['revenueStatus']);
+    }
 }
