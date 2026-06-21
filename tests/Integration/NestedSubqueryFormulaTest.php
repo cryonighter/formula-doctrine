@@ -12,24 +12,24 @@ final class NestedSubqueryFormulaTest extends OrmTestCase
     public function testDqlFourLevelNestedSubquery(): void
     {
         // Product 1: 3 order items, totalRevenue=90, has a high-rated review → qualifies at all levels
-        $p1id = $this->createProductWithOrderItems($this->makeProduct('Product 1'), [20.00, 30.00, 40.00]);
-        $this->createReview($p1id, 5);
+        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Product 1'), [20.00, 30.00, 40.00]);
+        $this->createReview($productId1, 5);
 
         // Product 2: 2 order items, totalRevenue=50, has a low-rated review → filtered out at level 4
-        $p2id = $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]);
-        $this->createReview($p2id, 2);
+        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]);
+        $this->createReview($productId2, 2);
 
         // Product 3: 1 order item with low price, totalRevenue=5 → filtered out at level 3 (price too low)
-        $p3id = $this->createProductWithOrderItems($this->makeProduct('Product 3'), [5.00]);
-        $this->createReview($p3id, 5);
+        $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'), [5.00]);
+        $this->createReview($productId3, 5);
 
         // Product 4: no order items, totalRevenue=0 → filtered out at level 2 (below avg revenue)
-        $p4id = $this->createProductWithOrderItems($this->makeProduct('Product 4'));
-        $this->createReview($p4id, 5);
+        $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'));
+        $this->createReview($productId4, 5);
 
         // Product 5: 2 order items, totalRevenue=70, has a high-rated review → qualifies at all levels
-        $p5id = $this->createProductWithOrderItems($this->makeProduct('Product 5'), [30.00, 40.00]);
-        $this->createReview($p5id, 4);
+        $productId5 = $this->createProductWithOrderItems($this->makeProduct('Product 5'), [30.00, 40.00]);
+        $this->createReview($productId5, 4);
 
         /** @var Rating[] $ratings */
         $ratings = $this->em->createQuery(
@@ -70,16 +70,16 @@ final class NestedSubqueryFormulaTest extends OrmTestCase
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        // Verify totalRevenue formula is present in the generated SQL
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
-        self::assertGreaterThanOrEqual(1, substr_count($mainSql, $subSql));
 
-        // Verify stars formula is present in the generated SQL
-        $starsFormulaSql = $this->registry->getForProperty(Rating::class, 'stars')->sql;
-        $starsSubSql = strstr($starsFormulaSql, '{this}', true) ?: $starsFormulaSql;
-        self::assertGreaterThanOrEqual(1, substr_count($mainSql, $starsSubSql));
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaStars = $this->registry->getForProperty(Rating::class, 'stars');
+
+        // The totalRevenue field formula appears twice: once for p (ORDER BY) and once for p2 (HAVING) aliases
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
+
+        // The stars field formula appears once: for rt alias in WHERE
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaStars);
 
         // Only Product 1 (revenue=90) and Product 5 (revenue=70) pass all 4 levels
         // Product 2: low-rated review (rating=2) → filtered at level 4

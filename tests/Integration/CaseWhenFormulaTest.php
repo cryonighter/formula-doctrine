@@ -26,7 +26,7 @@ final class CaseWhenFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         $mainSql = $this->queryLogger->getQueries()[0];
@@ -74,7 +74,7 @@ final class CaseWhenFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         $mainSql = $this->queryLogger->getQueries()[0];
@@ -114,7 +114,7 @@ final class CaseWhenFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         $mainSql = $this->queryLogger->getQueries()[0];
@@ -155,7 +155,7 @@ final class CaseWhenFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         $mainSql = $this->queryLogger->getQueries()[0];

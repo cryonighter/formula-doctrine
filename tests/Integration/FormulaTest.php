@@ -118,7 +118,7 @@ final class FormulaTest extends OrmTestCase
 
         $found = $this->em->find(Product::class, $productId);
 
-        // Exactly 1 query via find()
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // The field values are correct
@@ -165,7 +165,7 @@ final class FormulaTest extends OrmTestCase
 
         $found = $this->em->find(Review::class, $reviewId);
 
-        // Exactly 1 query via find()
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // Verify that product is a Doctrine proxy (not yet loaded)
@@ -192,7 +192,7 @@ final class FormulaTest extends OrmTestCase
             ->setParameter('id', $reviewId)
             ->getSingleResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
@@ -226,12 +226,12 @@ final class FormulaTest extends OrmTestCase
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Formula appears twice: once for p.totalRevenue in outer SELECT, once for p2.totalRevenue in subquery
-        self::assertSame(2, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
 
         self::assertCount(4, $result);
 
@@ -375,7 +375,7 @@ final class FormulaTest extends OrmTestCase
 
         $found = $this->em->getRepository(Rating::class)->findOneBy(['product' => $productId]);
 
-        // Exactly 1 eagerly query via findOneBy
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // Verify that product is NOT a Doctrine proxy (already loaded eagerly)

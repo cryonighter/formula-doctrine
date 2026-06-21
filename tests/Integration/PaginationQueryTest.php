@@ -24,8 +24,21 @@ final class PaginationQueryTest extends OrmTestCase
             ->getQuery()
             ->getResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+
+        // The orderCount field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        // The maxItemPrice field formula appears twice: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
+        // The totalRevenue field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Returned the required amount of products
         self::assertCount($limit, $resultOne);
@@ -69,8 +82,21 @@ final class PaginationQueryTest extends OrmTestCase
         $resultOne = $this->em->getRepository(Product::class)
             ->findBy([], [], $limit, $offset);
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+
+        // The orderCount field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        // The maxItemPrice field formula appears twice: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
+        // The totalRevenue field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Returned the required amount of products
         self::assertCount($limit, $resultOne);

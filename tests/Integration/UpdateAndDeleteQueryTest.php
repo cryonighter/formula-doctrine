@@ -19,7 +19,7 @@ final class UpdateAndDeleteQueryTest extends OrmTestCase
             ->setParameter('productId', $productId)
             ->execute();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query - UPDATE should not trigger formula processing
         self::assertCount(1, $this->queryLogger->getQueries());
 
         $result = $this->getProduct($productId);

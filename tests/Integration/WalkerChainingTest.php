@@ -3,6 +3,7 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration;
 
 use Cryonighter\FormulaDoctrine\Query\ChainingFormulaSqlWalker;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Walker\AddCommentSqlWalker;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\ORM\Query;
@@ -50,19 +51,23 @@ final class WalkerChainingTest extends OrmTestCase
 
     public function testSqlWalkerChainingWithFormulaValues(): void
     {
-        $productId = $this->createProductWithOrderItems($this->makeProduct('Popular Product'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Popular Product'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60, maxItemPrice=30
 
         $loaded = $this->getProduct($productId);
 
-        $sql = $this->queryLogger->getQueries()[0];
+        $mainSql = $this->queryLogger->getQueries()[0];
 
         // Third-party Walker added a comment
-        self::assertStringContainsString(AddCommentSqlWalker::COMMENT, $sql);
+        self::assertStringContainsString(AddCommentSqlWalker::COMMENT, $mainSql);
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // FormulaSqlWalker applied a substitution on top of the third-party Walker result
-        self::assertStringContainsString('SELECT COUNT', $sql);
-        self::assertStringContainsString('SELECT COALESCE', $sql);
-        self::assertStringContainsString('SELECT MAX', $sql);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Formula values are correct with chaining
         self::assertSame(3, $loaded->orderCount);
@@ -76,15 +81,19 @@ final class WalkerChainingTest extends OrmTestCase
 
         $loaded = $this->getProduct($productId);
 
-        $sql = $this->queryLogger->getQueries()[0];
+        $mainSql = $this->queryLogger->getQueries()[0];
 
         // Third-party Walker added a comment
-        self::assertStringContainsString(AddCommentSqlWalker::COMMENT, $sql);
+        self::assertStringContainsString(AddCommentSqlWalker::COMMENT, $mainSql);
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // FormulaSqlWalker applied a substitution on top of the third-party Walker result
-        self::assertStringContainsString('SELECT COUNT', $sql);
-        self::assertStringContainsString('SELECT COALESCE', $sql);
-        self::assertStringContainsString('SELECT MAX', $sql);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Formula values are correct with chaining
         self::assertSame(0, $loaded->orderCount);

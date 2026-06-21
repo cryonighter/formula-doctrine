@@ -16,8 +16,21 @@ final class AggregationFunctionTest extends OrmTestCase
             ->getQuery()
             ->getSingleResult();
 
-        // Exactly 1 query - all formulas in one SELECT
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+
+        // The orderCount field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        // The maxItemPrice field formula appears twice: in the SELECT statement
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaMaxItemPrice);
+        // The totalRevenue field formula appears once: in the SELECT statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Returned the required values
         self::assertSame(10, $result['countOrders']);

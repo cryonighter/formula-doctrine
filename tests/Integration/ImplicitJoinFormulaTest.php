@@ -27,12 +27,12 @@ final class ImplicitJoinFormulaTest extends OrmTestCase
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Product 3 (orderCount=0) filtered out, Product 2 (orderCount=1) filtered out
         self::assertCount(2, $result);
@@ -66,12 +66,12 @@ final class ImplicitJoinFormulaTest extends OrmTestCase
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Product 2 (totalRevenue=20 < 25) and Product 3 (totalRevenue=0, maxItemPrice=null) filtered out
         self::assertCount(2, $result);

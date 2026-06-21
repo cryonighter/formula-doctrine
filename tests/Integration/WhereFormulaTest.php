@@ -23,15 +23,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('orderCountTo', 3)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -55,15 +55,15 @@ final class WhereFormulaTest extends OrmTestCase
         /** @var Product[] $products */
         $products = $this->em->getRepository(Product::class)->findBy(['orderCount' => 2]);
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -93,15 +93,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('orderCount', 2)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of reviews
         self::assertCount(2, $reviews);
@@ -130,15 +130,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('max', 2)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -164,15 +164,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('counts', [1, 3])
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -202,15 +202,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('minPrice', 25.00)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Product 2 (has price 30 > 25) and Product 4 (has price 50, 60 > 25) match
         self::assertCount(2, $products);
@@ -235,15 +235,15 @@ final class WhereFormulaTest extends OrmTestCase
             ['orderCount' => 'ASC'],
         );
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -269,15 +269,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('counts', [1, 3])
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -307,15 +307,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('minPrice', 25.00)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
 
         // Product 1 (max price=10) and Product 3 (no items) do NOT have price > 25
         self::assertCount(2, $products);
@@ -340,15 +340,15 @@ final class WhereFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'maxItemPrice')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -373,15 +373,15 @@ final class WhereFormulaTest extends OrmTestCase
             ['name' => 'ASC'],
         );
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'maxItemPrice')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -406,15 +406,15 @@ final class WhereFormulaTest extends OrmTestCase
         )
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'maxItemPrice')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -442,8 +442,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('min', 1)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+
+        // Formula appears twice: once in ORDER BY (outer alias) and once in the EXISTS subquery (inner alias)
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -471,8 +478,15 @@ final class WhereFormulaTest extends OrmTestCase
             ->setParameter('min', 1)
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+
+        // Formula appears twice: once in ORDER BY (outer alias) and once in the NOT EXISTS subquery (inner alias)
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaOrderCount);
 
         // Returned the required amount of products
         self::assertCount(2, $products);
@@ -495,22 +509,20 @@ final class WhereFormulaTest extends OrmTestCase
         /** @var Product[] $products */
         $products = $this->em->createQuery(
             'SELECT p FROM ' . Product::class . ' p ' .
-            'WHERE p.totalRevenue = (' .
-            '    SELECT MAX(p2.totalRevenue) FROM ' . Product::class . ' p2' .
-            ') ' .
+            'WHERE p.totalRevenue = (SELECT MAX(p2.totalRevenue) FROM ' . Product::class . ' p2) ' .
             'ORDER BY p.name ASC'
         )
             ->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Formula appears twice: once in WHERE left-hand side, once in subquery MAX()
-        self::assertSame(2, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
 
         // Product 4 and Product 5 both have the maximum totalRevenue=60
         self::assertCount(2, $products);

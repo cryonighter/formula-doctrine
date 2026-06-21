@@ -20,15 +20,15 @@ final class GroupByFormulaTest extends OrmTestCase
             'SELECT p.orderCount, COUNT(p.id) as productCount FROM ' . Product::class . ' p GROUP BY p.orderCount'
         )->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Check grouped results
         self::assertCount(4, $result);
@@ -53,9 +53,9 @@ final class GroupByFormulaTest extends OrmTestCase
         $product2 = $this->makeProduct('Product 2');
         $product3 = $this->makeProduct('Product 1');
 
-        $this->createProductWithOrderItems($product1, [5.00, 10.00]);  // orderCount=2
-        $this->createProductWithOrderItems($product2, [20.00, 25.00]); // orderCount=2
-        $this->createProductWithOrderItems($product3, [30.00, 35.00]); // orderCount=2
+        $this->createProductWithOrderItems($product1, [5.00, 10.00]);  // orderCount=2, totalRevenue=15
+        $this->createProductWithOrderItems($product2, [20.00, 25.00]); // orderCount=2, totalRevenue=45
+        $this->createProductWithOrderItems($product3, [30.00, 35.00]); // orderCount=2, totalRevenue=65
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -63,15 +63,15 @@ final class GroupByFormulaTest extends OrmTestCase
             'FROM ' . Product::class . ' p GROUP BY p.name, p.orderCount ORDER BY p.name, p.orderCount'
         )->getResult();
 
-        // Exactly 1 eagerly query via DQL
+        // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'orderCount')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
 
         // Verify that the formula was only executed once
-        self::assertSame(1, substr_count($mainSql, $subSql));
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         // Check grouped results
         self::assertCount(2, $result);
