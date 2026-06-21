@@ -7,6 +7,7 @@ use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joine
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Inherited\Joined\Review;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
@@ -163,8 +164,7 @@ final class InheritedJoinedFormulaTest extends OrmTestCase
      * With JOINED inheritance, Doctrine cannot create a proxy and loads eagerly
      *
      * @see https://github.com/doctrine/orm/issues/3509
-     * Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerlyhttps://github.com/doctrine/orm/issues/3509
-     * // "Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerly"
+     * Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerly
      */
     public function testRelationFindLazyLoadSingleEntity(): void
     {
@@ -213,6 +213,53 @@ final class InheritedJoinedFormulaTest extends OrmTestCase
 
         // 1 request — Product has already been loaded, there are no additional requests
         self::assertCount(1, $this->queryLogger->getQueries());
+    }
+
+    public function testDqlScalarSubqueryInSelect(): void
+    {
+        $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00, 20.00, 30.00]);  // totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);                // totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                         // totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);         // totalRevenue=40
+
+        // AVG = (60+20+0+40)/4 = 30
+        $result = $this->em->createQuery(
+            'SELECT p.name, p.totalRevenue, ' .
+            '(SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) as avgRevenue ' .
+            'FROM ' . Product::class . ' p ' .
+            'ORDER BY p.totalRevenue DESC'
+        )
+            ->getResult();
+
+        // Exactly 1 query — all formula substitutions in one SQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
+        $mainSql = $this->queryLogger->getQueries()[0];
+        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
+
+        // Formula appears twice: once for p.totalRevenue in outer SELECT, once for p2.totalRevenue in subquery
+        self::assertSame(2, substr_count($mainSql, $subSql));
+
+        self::assertCount(4, $result);
+
+        // AVG = 30.0 for all rows
+        foreach ($result as $row) {
+            self::assertSame(30.0, $row['avgRevenue']);
+        }
+
+        // Sorted by totalRevenue DESC
+        self::assertSame('Product 1', $result[0]['name']);
+        self::assertSame(60.0, $result[0]['totalRevenue']);
+
+        self::assertSame('Product 4', $result[1]['name']);
+        self::assertSame(40.0, $result[1]['totalRevenue']);
+
+        self::assertSame('Product 2', $result[2]['name']);
+        self::assertSame(20.0, $result[2]['totalRevenue']);
+
+        self::assertSame('Product 3', $result[3]['name']);
+        self::assertSame(0.0, $result[3]['totalRevenue']);
     }
 
     /**

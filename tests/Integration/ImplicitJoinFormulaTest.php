@@ -49,9 +49,9 @@ final class ImplicitJoinFormulaTest extends OrmTestCase
     public function testDqlImplicitJoinWithFormulaFilter(): void
     {
         $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // totalRevenue=30
-        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // totalRevenue=20
-        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // totalRevenue=0
-        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);        // totalRevenue=60
+        $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);              // totalRevenue=20
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // totalRevenue=0
+        $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // totalRevenue=60
 
         /** @var array $result */
         $result = $this->em->createQuery(

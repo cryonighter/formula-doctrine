@@ -12,6 +12,8 @@ use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\HavingClause;
 use Doctrine\ORM\Query\AST\Join;
+use Doctrine\ORM\Query\AST\SelectClause;
+use Doctrine\ORM\Query\AST\SelectExpression;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\Subselect;
 use Doctrine\ORM\Query\AST\SubselectFromClause;
@@ -189,15 +191,38 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
     {
         $aliases = $this->collectFromSqlAliases($ast instanceof SelectStatement ? $ast->fromClause : $ast->subselectFromClause);
 
-        if ($ast->whereClause) {
+        if (isset($ast->selectClause)) {
+            $aliases = array_merge($aliases, $this->collectSelectSqlAliases($ast->selectClause));
+        }
+
+        if (isset($ast->whereClause)) {
             $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->whereClause));
         }
 
-        if ($ast->havingClause) {
+        if (isset($ast->havingClause)) {
             $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->havingClause));
         }
 
         return array_unique($aliases, SORT_REGULAR);
+    }
+
+    /**
+     * Recursively collects all SQL aliases from the SELECT clause.
+     *
+     * @return array<array<string, string>>
+     */
+    private function collectSelectSqlAliases(SelectClause $selectClause): array
+    {
+        $aliases = [];
+
+        foreach ($selectClause->selectExpressions as $selectExpression) {
+            /** @var SelectExpression $selectExpression */
+            if ($selectExpression->expression instanceof Subselect) {
+                $aliases = array_merge($aliases, $this->collectSqlAliases($selectExpression->expression));
+            }
+        }
+
+        return $aliases;
     }
 
     /**
