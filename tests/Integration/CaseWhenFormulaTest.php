@@ -29,12 +29,14 @@ final class CaseWhenFormulaTest extends OrmTestCase
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
 
-        // Verify that the formula was only executed once per usage in CASE WHEN
-        self::assertSame(4, substr_count($mainSql, $subSql));
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+
+        // The totalRevenue field formula appears four times: once in the SELECT statement
+        // and three times in the CASE WHEN statement
+        // The ORDER BY statement must use the alias from the first SELECT statement
+        self::assertCountFormulaSubqueries(4, $mainSql, $formulaTotalRevenue);
 
         // Check all rows
         self::assertCount(5, $result);
@@ -75,6 +77,15 @@ final class CaseWhenFormulaTest extends OrmTestCase
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+
+        // The orderCount field formula once
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaMaxItemPrice);
+
         // Check all rows
         self::assertCount(3, $result);
 
@@ -105,6 +116,13 @@ final class CaseWhenFormulaTest extends OrmTestCase
 
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+
+        // The orderCount field formula twice: once in the CASE WHEN statement, once in the ORDER By statement
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaOrderCount);
 
         // Products with orders first (sorted by orderCount DESC), then products without orders
         self::assertCount(4, $result);
@@ -140,13 +158,18 @@ final class CaseWhenFormulaTest extends OrmTestCase
         // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaSql = $this->registry->getForProperty(Product::class, 'totalRevenue')->sql;
         $mainSql = $this->queryLogger->getQueries()[0];
-        $subSql = strstr($formulaSql, '{this}', true) ?: $formulaSql;
 
-        // The formula appears four times: once in the SELECT statement, twice in the CASE WHEN statement,
-        // and once in the AVG subquery. The ORDER BY statement must use the alias from the first SELECT statement.
-        self::assertSame(4, substr_count($mainSql, $subSql));
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+
+        // The totalRevenue field formula appears four times: once in the SELECT statement,
+        // twice in the CASE WHEN statement, and once in the AVG subquery
+        // The ORDER BY statement must use the alias from the first SELECT statement
+        self::assertCountFormulaSubqueries(4, $mainSql, $formulaTotalRevenue);
+
+        // The orderCount field formula appears once: in the CASE WHEN statement
+        self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
 
         self::assertCount(4, $result);
 

@@ -6,6 +6,7 @@ use Cryonighter\FormulaDoctrine\Configuration\FormulaDoctrineConfigurator;
 use Cryonighter\FormulaDoctrine\DBAL\FormulaMiddleware;
 use Cryonighter\FormulaDoctrine\EventListener\LoadClassMetadataListener;
 use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
+use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
@@ -28,6 +29,20 @@ class OrmTestCase extends TestCase
     protected FormulaMetadataRegistry $registry;
     protected EntityManagerInterface $em;
     protected QueryLogger $queryLogger;
+
+    public static function assertCountFormulaSubqueries(
+        int $expectedCount,
+        string $mainQuery,
+        FormulaMetadata $formulaMetadata,
+    ): void {
+        $subQuery = strstr($formulaMetadata->sql, '{this}', true) ?: $formulaMetadata->sql;
+
+        $subQueryCount = substr_count($mainQuery, $subQuery);
+
+        $message = "Expected $expectedCount subqueries, found $subQueryCount instead";
+
+        self::assertSame($expectedCount, $subQueryCount, $message);
+    }
 
     protected function setUp(): void
     {
