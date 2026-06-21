@@ -56,6 +56,46 @@ final class PaginationQueryTest extends OrmTestCase
         self::assertSame('Product 6', $resultTwo[1]->name);
     }
 
+    /**
+     * Test that findBy() pagination works correctly
+     */
+    public function testFindPagination(): void
+    {
+        $this->createManyProduct();
+
+        $limit = 3;
+        $offset = 2;
+
+        $resultOne = $this->em->getRepository(Product::class)
+            ->findBy([], [], $limit, $offset);
+
+        // Exactly 1 query - all formulas in one SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Returned the required amount of products
+        self::assertCount($limit, $resultOne);
+
+        // The field values are correct
+        self::assertSame('Product 3', $resultOne[0]->name);
+        self::assertSame('Product 4', $resultOne[1]->name);
+        self::assertSame('Product 5', $resultOne[2]->name);
+
+        $this->queryLogger->reset();
+
+        $resultTwo = $this->em->getRepository(Product::class)
+            ->findBy([], [], $limit, $offset + 2);
+
+        // Exactly 1 query - all formulas in one SELECT
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Returned the required amount of products
+        self::assertCount(2, $resultTwo);
+
+        // The field values are correct
+        self::assertSame('Product 5', $resultTwo[0]->name);
+        self::assertSame('Product 6', $resultTwo[1]->name);
+    }
+
     public function createManyProduct(): void
     {
         $this->createProductWithOrderItems($this->makeProduct('Product 1'));
