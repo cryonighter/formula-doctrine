@@ -198,11 +198,23 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
         }
 
         if (isset($ast->whereClause)) {
-            $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->whereClause));
+            $aliases = array_merge($aliases, $this->collectConditionalSqlAliases($ast->whereClause));
         }
 
         if (isset($ast->havingClause)) {
-            $aliases = array_merge($aliases, $this->collectWhereOrHavingSqlAliases($ast->havingClause));
+            $aliases = array_merge($aliases, $this->collectConditionalSqlAliases($ast->havingClause));
+        }
+
+        if (isset($ast->orderByClause)) {
+            foreach ($ast->orderByClause->orderByItems as $orderByItem) {
+                $expression = $orderByItem->expression;
+
+                if ($expression instanceof GeneralCaseExpression) {
+                    foreach ($expression->whenClauses as $whenClause) {
+                        $aliases = array_merge($aliases, $this->collectConditionalSqlAliases($whenClause));
+                    }
+                }
+            }
         }
 
         return array_unique($aliases, SORT_REGULAR);
@@ -227,40 +239,8 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
             if ($expression instanceof GeneralCaseExpression) {
                 foreach ($expression->whenClauses as $whenClause) {
-                    if (!$whenClause instanceof WhenClause) {
-                        continue;
-                    }
-
-                    $conditionalExpression = $whenClause->caseConditionExpression;
-
-                    // ConditionalTerm is a node that contains multiple conditional expressions, like AND/OR
-                    $conditionalFactors = match ($conditionalExpression instanceof ConditionalTerm) {
-                        true => $conditionalExpression->conditionalFactors,
-                        false => [$conditionalExpression],
-                    };
-
-                    foreach ($conditionalFactors as $conditionalFactor) {
-                        $conditional = match ($conditionalFactor instanceof ConditionalFactor)  {
-                            true => $conditionalFactor->conditionalPrimary,
-                            false => $conditionalFactor,
-                        };
-
-                        // ConditionalPrimary is a node that contains a single conditional expression, like BETWEEN/IN/EXISTS
-                        if ($conditional instanceof ConditionalPrimary) {
-                            $simpleConditionalExpression = $conditional->simpleConditionalExpression;
-
-                            // ComparisonExpression is a node that contains a comparison operator (like =, <, >, etc)
-                            if ($simpleConditionalExpression instanceof ComparisonExpression) {
-                                $leftExpression = $simpleConditionalExpression->leftExpression;
-                                $rightExpression = $simpleConditionalExpression->rightExpression;
-
-                                $aliases = array_merge(
-                                    $aliases,
-                                    isset($leftExpression->subselect) ? $this->collectSqlAliases($leftExpression->subselect) : [],
-                                    isset($rightExpression->subselect) ? $this->collectSqlAliases($rightExpression->subselect) : [],
-                                );
-                            }
-                        }
+                    if ($whenClause instanceof WhenClause) {
+                        $aliases = array_merge($aliases, $this->collectConditionalSqlAliases($whenClause));
                     }
                 }
             }
@@ -270,15 +250,17 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
     }
 
     /**
-     * Recursively collects all SQL aliases from the WHERE clause.
+     * Recursively collects all SQL aliases from the WHERE, HAVING AND WHEN clause.
      *
      * @return array<array<string, string>>
      */
-    private function collectWhereOrHavingSqlAliases(WhereClause|HavingClause $whereOrHavingClause): array
+    private function collectConditionalSqlAliases(WhereClause|HavingClause|WhenClause|Join $clause): array
     {
         $aliases = [];
 
-        $conditionalExpression = $whereOrHavingClause->conditionalExpression;
+        $conditionalExpression = $clause instanceof WhenClause
+            ? $clause->caseConditionExpression
+            : $clause->conditionalExpression;
 
         // ConditionalTerm is a node that contains multiple conditional expressions, like AND/OR
         $conditionalFactors = match ($conditionalExpression instanceof ConditionalTerm) {
@@ -373,6 +355,10 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
     private function collectJoinSqlAliases(Join $join): array
     {
         $aliases = [];
+
+        if ($join->conditionalExpression) {
+            $aliases = array_merge($aliases, $this->collectConditionalSqlAliases($join));
+        }
 
         $dqlAlias = $join->joinAssociationDeclaration?->aliasIdentificationVariable ?? null;
 
