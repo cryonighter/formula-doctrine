@@ -130,7 +130,7 @@ class OrmTestCase extends TestCase
             [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
-                //'path' => __DIR__ . '/test_db.sqlite' // For debugging
+                //'path' => __DIR__ . '/test_db.sqlite', // For debugging
             ],
             $configuration,
         );
