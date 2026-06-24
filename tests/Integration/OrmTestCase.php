@@ -9,9 +9,6 @@ use Cryonighter\FormulaDoctrine\EventListener\PostGenerateSchemaListener;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadata;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataFactory;
 use Cryonighter\FormulaDoctrine\Metadata\FormulaMetadataRegistry;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\OrderItem;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Product;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Middleware\QueryLogger;
 use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\Connection;
@@ -70,7 +67,11 @@ class OrmTestCase extends TestCase
     protected function createEntityManager(QueryLogger $queryLogger, bool $useCache): EntityManagerInterface
     {
         $ormConfig = ORMSetup::createAttributeMetadataConfiguration(
-            paths: [__DIR__ . '/Fixture/Entity'],
+            paths: [
+                __DIR__ . '/Independent/Fixture/Entity',
+                __DIR__ . '/Inherited/Joined/Fixture/Entity',
+                __DIR__ . '/Inherited/Single/Fixture/Entity',
+            ],
             isDevMode: !$useCache, // In prod mode, the cache works more actively
         );
 
@@ -139,64 +140,5 @@ class OrmTestCase extends TestCase
     protected function setDefaultQueryHint(DbalConfiguration $ormConfig): void
     {
         // No-op
-    }
-
-    /**
-     * Helper method to create a product entity
-     */
-    protected function makeProduct(string $name): Product
-    {
-        $product = new Product();
-        $product->name = $name;
-
-        return $product;
-    }
-
-    /**
-     * Helper method to create an order item entity
-     */
-    protected function makeOrderItem(Product $product, float $price): OrderItem
-    {
-        $item = new OrderItem();
-        $item->product = $product;
-        $item->price = (string) $price;
-        $item->quantity = 1;
-
-        return $item;
-    }
-
-    /**
-     * Helper method to persist product and order items for him
-     */
-    protected function createProductWithOrderItems(Product $product, array $prices = []): int
-    {
-        $this->em->persist($product);
-        $this->em->persist(new Rating($product));
-
-        foreach ($prices as $price) {
-            $this->em->persist($this->makeOrderItem($product, $price));
-        }
-
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-
-        return $product->id;
-    }
-
-    /**
-     * Helper method for load a product by ID via DQL
-     */
-    protected function getProduct(int $id): Product
-    {
-        $product = $this->em
-            ->createQuery('SELECT p FROM ' . Product::class . ' p WHERE p.id = :id')
-            ->setParameter('id', $id)
-            ->getSingleResult();
-
-        self::assertInstanceOf(Product::class, $product);
-
-        return $product;
     }
 }
