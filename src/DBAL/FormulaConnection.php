@@ -45,13 +45,14 @@ final class FormulaConnection extends AbstractConnectionMiddleware
 
     private function process(string $sql): string
     {
+        $command = strtoupper(substr(ltrim($sql), 0, strpos(ltrim($sql), ' ')));
+
         // Fast path: only process SELECT statements from BasicEntityPersister.
         // BasicEntityPersister always generates aliases like t0, t1, t4 etc.
-        if (!str_starts_with(ltrim($sql), 'SELECT')) {
+        if (!in_array($command, ['SELECT', 'WITH', 'INSERT', 'UPDATE', 'DELETE'])) {
             return $sql;
         }
 
-        // This operation is simpler, we perform it first
         $tableAliases = $this->extractTableAliases($sql);
 
         if (!$tableAliases) {
@@ -64,9 +65,9 @@ final class FormulaConnection extends AbstractConnectionMiddleware
             return $sql;
         }
 
-        foreach ($tableAliases as $tableName => $tableAlias) {
+        foreach ($tableAliases as ['table' => $tableName, 'alias' => $tableAlias]) {
             foreach ($formulaAliases[$tableName] ?? [] as $columnAlias => $meta) {
-                $columnName = "$tableAlias.$columnAlias";
+                $columnName = $tableAlias ? "$tableAlias.$columnAlias" : $columnAlias;
 
                 $countColumnName = substr_count($sql, $columnName);
 
@@ -76,7 +77,7 @@ final class FormulaConnection extends AbstractConnectionMiddleware
 
                 $formulaSql = str_replace('{this}', $tableAlias, $meta->sql);
 
-                if ($countColumnName === 1) {
+                if ($countColumnName === 1 || !in_array($command, ['SELECT', 'WITH'])) {
                     $sql = str_replace($columnName, $formulaSql, $sql);
 
                     continue;
@@ -111,22 +112,55 @@ final class FormulaConnection extends AbstractConnectionMiddleware
     /**
      * Extracts all table aliases from the SQL statement.
      *
-     * BasicEntityPersister generates aliases like t0, t1, t2, t4 etc.
-     * Pattern matches: "FROM table_name tN" and "JOIN table_name tN"
+     * Matches: FROM/JOIN/INSERT INTO/UPDATE/DELETE FROM <table_name> [AS] [alias]
+     * Context keywords: FROM, JOIN (all variants), INTO, UPDATE, DELETE
+     * Table name: word characters
+     * Optional alias:
+     *    - explicit: AS <alias>
+     *    - implicit: next token exists AND is not a SQL keyword
+     *    - absent:   next token is a SQL keyword or end of string
      *
-     * @return array<string, string> Map of table names to their aliases
+     * @return array<array<string, string>>
      */
     private function extractTableAliases(string $sql): array
     {
-        // Matches: FROM/JOIN <table_name> <alias>
-        // Alias pattern: t followed by one or more digits (t0, t1, t4, t10...)
-        preg_match_all('/(?:FROM|JOIN)\s+(\w+)\s+(t\d+)/i', $sql, $matches);
+        // SQL keywords that can appear right after a table name when there is NO alias
+        $sqlKeywords = [
+            'SET', 'WHERE', 'ON', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'CROSS',
+            'OUTER', 'JOIN', 'FROM', 'INTO', 'UPDATE', 'DELETE', 'INSERT',
+            'ORDER', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'EXCEPT',
+            'INTERSECT', 'WITH', 'VALUES', 'SELECT',
+        ];
 
-        if (empty($matches[1])) {
+        $pattern = '/
+        (?:FROM|(?:INNER|LEFT|RIGHT|FULL|CROSS)\s+(?:OUTER\s+)?JOIN|JOIN|INTO|UPDATE|(?:DELETE\s+FROM))
+        \s+
+        (\w+)               # table name
+        (?:
+            \s+AS\s+(\w+)   # explicit alias: AS alias
+            |
+            \s+(?!(?:' . implode('|', $sqlKeywords) . ')\b)(\w+)  # implicit alias: not a keyword
+        )?
+    /xi';
+
+        preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER);
+
+        if (empty($matches)) {
             return [];
         }
 
-        return array_combine($matches[1], $matches[2]);
+        $result = [];
+
+        foreach ($matches as $match) {
+            $table = $match[1];
+
+            // Group 2 = explicit AS alias, Group 3 = implicit alias
+            $alias = !empty($match[2]) ? $match[2] : (!empty($match[3]) ? $match[3] : null);
+
+            $result[] = ['table' => $table, 'alias' => $alias];
+        }
+
+        return $result;
     }
 
     /**

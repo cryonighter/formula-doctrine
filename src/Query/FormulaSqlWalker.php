@@ -8,6 +8,7 @@ use Doctrine\ORM\Query\AST\ComparisonExpression;
 use Doctrine\ORM\Query\AST\ConditionalFactor;
 use Doctrine\ORM\Query\AST\ConditionalPrimary;
 use Doctrine\ORM\Query\AST\ConditionalTerm;
+use Doctrine\ORM\Query\AST\DeleteClause;
 use Doctrine\ORM\Query\AST\DeleteStatement;
 use Doctrine\ORM\Query\AST\FromClause;
 use Doctrine\ORM\Query\AST\GeneralCaseExpression;
@@ -18,6 +19,7 @@ use Doctrine\ORM\Query\AST\SelectExpression;
 use Doctrine\ORM\Query\AST\SelectStatement;
 use Doctrine\ORM\Query\AST\Subselect;
 use Doctrine\ORM\Query\AST\SubselectFromClause;
+use Doctrine\ORM\Query\AST\UpdateClause;
 use Doctrine\ORM\Query\AST\UpdateStatement;
 use Doctrine\ORM\Query\AST\WhenClause;
 use Doctrine\ORM\Query\AST\WhereClause;
@@ -73,12 +75,22 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
         return $this->applyFormulas(parent::createSqlForFinalizer($ast), $ast);
     }
 
+    public function walkUpdateStatement(UpdateStatement $ast): string
+    {
+        return $this->applyFormulas(parent::walkUpdateStatement($ast), $ast);
+    }
+
+    public function walkDeleteStatement(DeleteStatement $ast): string
+    {
+        return $this->applyFormulas(parent::walkDeleteStatement($ast), $ast);
+    }
+
     /**
      * Applies formula replacements to the SQL string for all collected aliases.
      */
-    final protected function applyFormulas(string $sql, SelectStatement $ast): string
+    final protected function applyFormulas(string $sql, SelectStatement|UpdateStatement|DeleteStatement $ast): string
     {
-        $rootTableNameAndAlias = $this->getRootTableNameAndAliasAsString($ast->fromClause);
+        $rootTableNameAndAlias = $ast instanceof SelectStatement ? $this->getRootTableNameAndAliasAsString($ast->fromClause) : null;
 
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
@@ -92,7 +104,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
 
                 $formulaSql = str_replace('{this}', $sqlTableAlias, $meta->sql);
 
-                if ($countColumnName === 1) {
+                if ($countColumnName === 1 || $ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
                     $sql = str_replace($columnName, $formulaSql, $sql);
 
                     continue;
@@ -151,7 +163,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      *
      * @return array<string, array<FormulaMetadata>>
      */
-    private function getFormulasByAlias(SelectStatement $ast): array
+    private function getFormulasByAlias(SelectStatement|UpdateStatement|DeleteStatement $ast): array
     {
         $registry = $this->getQuery()->getHint(self::HINT_REGISTRY);
 
@@ -189,9 +201,14 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      *
      * @return array<array<string, string>>
      */
-    private function collectSqlAliases(SelectStatement|Subselect $ast): array
+    private function collectSqlAliases(SelectStatement|Subselect|UpdateStatement|DeleteStatement $ast): array
     {
-        $aliases = $this->collectFromSqlAliases($ast instanceof SelectStatement ? $ast->fromClause : $ast->subselectFromClause);
+        $aliases = match (true) {
+            $ast instanceof SelectStatement => $this->collectFromSqlAliases($ast->fromClause),
+            $ast instanceof Subselect => $this->collectFromSqlAliases($ast->subselectFromClause),
+            $ast instanceof UpdateStatement => $this->collectUpdateAndDeleteSqlAliases($ast->updateClause),
+            $ast instanceof DeleteStatement => $this->collectUpdateAndDeleteSqlAliases($ast->deleteClause),
+        };
 
         if (isset($ast->selectClause)) {
             $aliases = array_merge($aliases, $this->collectSelectSqlAliases($ast->selectClause));
@@ -304,6 +321,24 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
         }
 
         return $aliases;
+    }
+
+    /**
+     * Collects all SQL aliases from the UPDATE and DELETE clause.
+     *
+     * @return array<array<string, string>>
+     */
+    private function collectUpdateAndDeleteSqlAliases(UpdateClause|DeleteClause $updateClause): array
+    {
+        $dqlAlias = $updateClause->aliasIdentificationVariable;
+        $entityClass = $updateClause->abstractSchemaName;
+
+        $aliases = [
+            'entityClass' => $entityClass,
+            'sqlAlias' => $this->resolveSqlAliasByDqlAlias($dqlAlias, $entityClass),
+        ];
+
+        return [$aliases];
     }
 
     /**
