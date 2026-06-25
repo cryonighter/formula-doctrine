@@ -3,9 +3,15 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.3.0] - 2026-06-25
+### Added
+- Support subqueries with formula fields in DQL queries
+- Support IMPLICIT JOIN expressions in DQL queries
+- Support UPDATE AND DELETE DQL queries
+
 ## [1.2.1] - 2026-06-17
 ### Added
-- Support CASE WHEN expressions
+- Support CASE WHEN expressions in DQL queries
 
 ## [1.2.0] - 2026-06-16
 ### Added
@@ -60,3 +66,4 @@ This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 [1.1.4]: https://github.com/cryonighter/formula-doctrine/tree/v1.1.4
 [1.2.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.0
 [1.2.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.1
+[1.3.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.3.0

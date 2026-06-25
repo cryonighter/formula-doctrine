@@ -468,6 +468,38 @@ public int $orderCount = 0;
 > Use a custom alias only when you need to control the raw SQL column name,
 > e.g. for compatibility with a specific reporting tool.
 
+
+### UPDATE queries
+
+Formula fields can be used in the `WHERE` clause of DQL `UPDATE` queries —
+filter which entities to update based on computed values:
+
+```php
+// Update all customers who placed 10 or more orders
+$affected = $entityManager
+    ->createQuery('UPDATE App\Entity\Customer c SET c.name = :newName WHERE c.orderCount >= :min')
+    ->setParameter('newName', 'VIP')
+    ->setParameter('min', 10)
+    ->execute();
+```
+
+> **Note:** Formula fields are read-only and are never written to the database.
+> They can only appear in `WHERE` clauses of `UPDATE`/`DELETE` — not in the `SET` clause.
+
+
+### DELETE queries
+
+Formula fields work identically in DQL `DELETE` queries:
+
+```php
+// Delete customers who have never placed an order
+$affected = $entityManager
+    ->createQuery('DELETE App\Entity\Customer c WHERE c.orderCount = :count')
+    ->setParameter('count', 0)
+    ->execute();
+```
+
+
 ## How it works
 
 1. **`FormulaMetadataFactory`** reads `#[Formula]` attributes via PHP Reflection
