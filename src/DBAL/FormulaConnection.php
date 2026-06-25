@@ -75,7 +75,7 @@ final class FormulaConnection extends AbstractConnectionMiddleware
                     continue;
                 }
 
-                $formulaSql = str_replace('{this}', $tableAlias, $meta->sql);
+                $formulaSql = str_replace('{this}', $tableAlias ?? $tableName, $meta->sql);
 
                 if ($countColumnName === 1 || !in_array($command, ['SELECT', 'WITH'])) {
                     $sql = str_replace($columnName, $formulaSql, $sql);
