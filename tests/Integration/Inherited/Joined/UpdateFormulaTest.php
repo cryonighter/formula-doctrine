@@ -2,12 +2,63 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\FormulaJoinedProduct;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\OrderItem;
 
 final class UpdateFormulaTest extends JoinedInheritedOrmTestCase
 {
+    /**
+     * Test that flush does not persist formula fields
+     */
+    public function testFormulaFieldsAreNotPersistedOnFlush(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('Persist Test'), [50.00]); // orderCount=1
+
+        $loaded = $this->getProduct($productId);
+
+        // The field values loaded are correct
+        self::assertSame('Persist Test', $loaded->name);
+        self::assertSame(1, $loaded->orderCount);
+        self::assertEqualsWithDelta(50.00, $loaded->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(50.00, $loaded->totalRevenue, 0.001);
+
+        // Modify a regular field and flush
+        $loaded->name = 'Updated Name';
+        $this->em->flush();
+
+        // Check that flush did not break due to formula fields
+        $this->em->clear();
+
+        $reloaded = $this->getProduct($productId);
+
+        // The field values reloaded are correct
+        self::assertSame('Updated Name', $reloaded->name);
+        self::assertSame(1, $reloaded->orderCount);
+        self::assertEqualsWithDelta(50.00, $loaded->maxItemPrice, 0.001);
+        self::assertEqualsWithDelta(50.00, $loaded->totalRevenue, 0.001);
+    }
+
+    /**
+     * Test that changing a formula field does not trigger an update
+     */
+    public function testFormulaFieldChangeDoesNotTriggerUpdate(): void
+    {
+        $productId = $this->createProductWithOrderItems($this->makeProduct('No Update Test')); // orderCount=0
+
+        $loaded = $this->getProduct($productId);
+
+        // Changing the formula field
+        $loaded->orderCount = 999;
+
+        // Flush should not attempt to save orderCount=999
+        $this->em->flush();
+        $this->em->clear();
+
+        $reloaded = $this->getProduct($productId);
+
+        // After reloading, the value is recalculated from the database (0, no orders)
+        self::assertSame(0, $reloaded->orderCount);
+    }
+
     public function testDqlUpdateWhereFormulaField(): void
     {
         $this->createProductWithOrderItems($this->makeProduct('Product 1'), [5.00, 10.00, 15.00]); // orderCount=3
