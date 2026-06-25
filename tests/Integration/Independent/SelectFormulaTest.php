@@ -1,15 +1,14 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\FormulaJoinedProduct;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\JoinedProduct;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\Rating;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\Review;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Review;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
-final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
+final class SelectFormulaTest extends IndependentOrmTestCase
 {
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders
@@ -20,7 +19,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         $result = $this->getProduct($productId);
 
-        // Exactly 1 query — all formula substitutions in one SQL
+        // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // The field values are correct
@@ -38,7 +37,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         $result = $this->getProduct($productId);
 
-        // Exactly 1 query — all formula substitutions in one SQL
+        // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // The field values are correct
@@ -60,13 +59,13 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         // One SELECT should return all 3 products with formulas
         $products = $this->em
-            ->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p ORDER BY p.id ASC')
+            ->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.id ASC')
             ->getResult();
 
         // Returned the required amount of products
         self::assertCount(3, $products);
 
-        // Exactly 1 query — all formula substitutions in one SQL
+        // Exactly 1 query - all formulas in one SELECT
         self::assertCount(1, $this->queryLogger->getQueries());
 
         // SQL contains formula subqueries
@@ -91,7 +90,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 3'));
 
         // One SELECT should return all 3 products with formulas
-        $products = $this->em->getRepository(FormulaJoinedProduct::class)->findAll();
+        $products = $this->em->getRepository(Product::class)->findAll();
 
         // Returned the required amount of products
         self::assertCount(3, $products);
@@ -112,7 +111,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Find Product'), [10.00, 20.00]);
 
-        $found = $this->em->find(FormulaJoinedProduct::class, $productId);
+        $found = $this->em->find(Product::class, $productId);
 
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
@@ -138,7 +137,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
         $this->queryLogger->reset();
 
         // find() should return object from Identity Map without extra queries
-        $viaFind = $this->em->find(FormulaJoinedProduct::class, $productId);
+        $viaFind = $this->em->find(Product::class, $productId);
 
         self::assertSame($viaDql, $viaFind);
 
@@ -153,79 +152,27 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
     /**
      * Test that a single entity can be found lazily via a relation
-     *
-     * With JOINED inheritance, Doctrine cannot create a proxy and loads eagerly
-     *
-     * @see https://github.com/doctrine/orm/issues/3509
-     * Doctrine CANNOT create proxy instances of this entity and will ALWAYS load the entity eagerly
      */
     public function testRelationFindLazyLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
-        $reviewId = $this->createReview($productId, 'Test review');
+        $reviewId = $this->createReview($productId, 'Test review', rand(1, 5));
 
         $found = $this->em->find(Review::class, $reviewId);
 
         // Exactly 1 query — all formula substitutions in one SQL
-        self::assertCount(2, $this->queryLogger->getQueries());
+        self::assertCount(1, $this->queryLogger->getQueries());
 
-        // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
-        self::assertNotInstanceOf(Proxy::class, $found->product);
+        // Verify that product is a Doctrine proxy (not yet loaded)
+        self::assertInstanceOf(Proxy::class, $found->product);
 
-        // The field values are correct (already loaded eagerly)
+        // The field values are correct (product loaded via lazy load)
         self::assertSame(2, $found->product->orderCount);
         self::assertEqualsWithDelta(40.00, $found->product->maxItemPrice, 0.001);
         self::assertEqualsWithDelta(70.00, $found->product->totalRevenue, 0.001);
 
-        // 2 request — Product has already been loaded, there are no additional requests
+        // 2 requests - find Review and lazy load Product
         self::assertCount(2, $this->queryLogger->getQueries());
-    }
-
-    public function testDqlSubqueryInJoinWith(): void
-    {
-        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60
-        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
-        $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
-        $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
-
-        $this->createReview($productId1, 'Review 1');
-        $this->createReview($productId2, 'Review 2');
-        $this->createReview($productId3, 'Review 3');
-        $this->createReview($productId4, 'Review 4');
-
-        // AVG totalRevenue = (60+20+0+40)/4 = 30
-
-        /** @var array $result */
-        $result = $this->em->createQuery(
-            'SELECT p.name, p.totalRevenue ' .
-            'FROM ' . FormulaJoinedProduct::class . ' p ' .
-            'JOIN ' . Review::class . ' r WITH r.product = p ' .
-            '    AND p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . FormulaJoinedProduct::class . ' p2) ' .
-            'ORDER BY p.totalRevenue DESC'
-        )
-            ->getResult();
-
-        // Exactly 1 query — all formula substitutions in one SQL
-        self::assertCount(1, $this->queryLogger->getQueries());
-
-        $mainSql = $this->queryLogger->getQueries()[0];
-
-        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
-
-        // The totalRevenue field formula appears twice: once in SELECT, once in AVG subquery
-        self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
-
-        // Product 1: totalRevenue=60 > AVG(30) → ok
-        // Product 4: totalRevenue=40 > AVG(30) → ok
-        // Product 2: totalRevenue=20 ≤ AVG(30) → filtered out
-        // Product 3: totalRevenue=0  ≤ AVG(30) → filtered out
-        self::assertCount(2, $result);
-
-        self::assertSame('Product 1', $result[0]['name']);
-        self::assertSame(60.0, $result[0]['totalRevenue']);
-
-        self::assertSame('Product 4', $result[1]['name']);
-        self::assertSame(40.0, $result[1]['totalRevenue']);
     }
 
     /**
@@ -234,7 +181,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
     public function testRelationDqlEagerLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
-        $reviewId = $this->createReview($productId, 'Test review');
+        $reviewId = $this->createReview($productId, 'Test review', rand(1, 5));
 
         $found = $this->em->createQuery('SELECT r, p FROM ' . Review::class . ' r JOIN r.product p WHERE r.id = :id')
             ->setParameter('id', $reviewId)
@@ -265,8 +212,8 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
         // AVG = (60+20+0+40)/4 = 30
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue, ' .
-            '(SELECT AVG(p2.totalRevenue) FROM ' . FormulaJoinedProduct::class . ' p2) as avgRevenue ' .
-            'FROM ' . FormulaJoinedProduct::class . ' p ' .
+            '(SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) as avgRevenue ' .
+            'FROM ' . Product::class . ' p ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -276,7 +223,7 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
 
         // Formula appears twice: once for p.totalRevenue in outer SELECT, once for p2.totalRevenue in subquery
         self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
@@ -300,6 +247,53 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         self::assertSame('Product 3', $result[3]['name']);
         self::assertSame(0.0, $result[3]['totalRevenue']);
+    }
+
+    public function testDqlSubqueryInJoinWith(): void
+    {
+        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Product 1'), [10.00, 20.00, 30.00]); // orderCount=3, totalRevenue=60
+        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00]);               // orderCount=1, totalRevenue=20
+        $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
+        $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
+
+        $this->createReview($productId1, 'Review 1', rand(1, 5));
+        $this->createReview($productId2, 'Review 2', rand(1, 5));
+        $this->createReview($productId3, 'Review 3', rand(1, 5));
+        $this->createReview($productId4, 'Review 4', rand(1, 5));
+
+        // AVG totalRevenue = (60+20+0+40)/4 = 30
+
+        /** @var array $result */
+        $result = $this->em->createQuery(
+            'SELECT p.name, p.totalRevenue ' .
+            'FROM ' . Product::class . ' p ' .
+            'JOIN ' . Review::class . ' r WITH r.product = p ' .
+            '    AND p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) ' .
+            'ORDER BY p.totalRevenue DESC'
+        )
+            ->getResult();
+
+        // Exactly 1 query — all formula substitutions in one SQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        $mainSql = $this->queryLogger->getQueries()[0];
+
+        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+
+        // The totalRevenue field formula appears twice: once in SELECT, once in AVG subquery
+        self::assertCountFormulaSubqueries(2, $mainSql, $formulaTotalRevenue);
+
+        // Product 1: totalRevenue=60 > AVG(30) → ok
+        // Product 4: totalRevenue=40 > AVG(30) → ok
+        // Product 2: totalRevenue=20 ≤ AVG(30) → filtered out
+        // Product 3: totalRevenue=0  ≤ AVG(30) → filtered out
+        self::assertCount(2, $result);
+
+        self::assertSame('Product 1', $result[0]['name']);
+        self::assertSame(60.0, $result[0]['totalRevenue']);
+
+        self::assertSame('Product 4', $result[1]['name']);
+        self::assertSame(40.0, $result[1]['totalRevenue']);
     }
 
     /**
@@ -394,32 +388,6 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
         }
     }
 
-    /**
-     * Helper method to create a review and return its ID
-     */
-    private function createReview(int $productId, string $description): int
-    {
-        // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(JoinedProduct::class, $productId);
-
-        $review = new Review();
-        $review->product = $product;
-        $review->rating = rand(1, 5);
-        $review->description = $description;
-
-        $this->em->persist($review);
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-
-        return $review->id;
-    }
-
-    /**
-     * Test eager loading of a single entity with a relation to a formula entity.
-     * For merged entities, loading occurs in 2 requests, but immediately, without accessing the related entity.
-     */
     public function testFindRelationEntityEagerLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Rating Product'), [40.00, 45.00]);
@@ -427,8 +395,8 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
 
         $found = $this->em->getRepository(Rating::class)->findOneBy(['product' => $productId]);
 
-        // Exactly 2 eagerly query via findOneBy
-        self::assertCount(2, $this->queryLogger->getQueries());
+        // Exactly 1 query — all formula substitutions in one SQL
+        self::assertCount(1, $this->queryLogger->getQueries());
 
         // Verify that product is NOT a Doctrine proxy (already loaded eagerly)
         self::assertNotInstanceOf(Proxy::class, $found->product);
@@ -439,7 +407,30 @@ final class FormulaJoinedInheritedTest extends JoinedInheritedOrmTestCase
         self::assertEqualsWithDelta(85.00, $found->product->totalRevenue, 0.001);
         self::assertEqualsWithDelta(4.00, $found->stars, 0.001);
 
-        // 2 request — Product has already been loaded, there are no additional requests
-        self::assertCount(2, $this->queryLogger->getQueries());
+        // 1 request — Product has already been loaded, there are no additional requests
+        self::assertCount(1, $this->queryLogger->getQueries());
+    }
+
+    /**
+     * Helper method to create multiple reviews for a product
+     */
+    private function createManyReviews(int $productId, array $ratings): void
+    {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(Product::class, $productId);
+
+        foreach ($ratings as $rating) {
+            $review = new Review();
+            $review->product = $product;
+            $review->rating = $rating;
+            $review->description = 'Test review';
+
+            $this->em->persist($review);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
     }
 }

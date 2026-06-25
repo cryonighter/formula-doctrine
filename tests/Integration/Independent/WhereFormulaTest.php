@@ -83,10 +83,10 @@ final class WhereFormulaTest extends IndependentOrmTestCase
         $productId3 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 3'));                       // orderCount=0
         $productId4 = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product 4'), [25.00, 35.00]);       // orderCount=2
 
-        $this->createReview('Test review 1', $productId1);
-        $this->createReview('Test review 2', $productId2);
-        $this->createReview('Test review 3', $productId3);
-        $this->createReview('Test review 4', $productId4);
+        $this->createReview($productId1, 'Test review 1', rand(1, 5));
+        $this->createReview($productId2, 'Test review 2', rand(1, 5));
+        $this->createReview($productId3, 'Test review 3', rand(1, 5));
+        $this->createReview($productId4, 'Test review 4', rand(1, 5));
 
         /** @var Review $found */
         $reviews = $this->em->createQuery('SELECT r FROM ' . Review::class . ' r JOIN r.product p WHERE p.orderCount >= :orderCount')
@@ -532,27 +532,5 @@ final class WhereFormulaTest extends IndependentOrmTestCase
 
         self::assertSame('Product 5', $products[1]->name);
         self::assertSame(60.0, $products[1]->totalRevenue);
-    }
-
-    /**
-     * Helper method to create a review and return its ID
-     */
-    private function createReview(string $description, int $productId): int
-    {
-        // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(Product::class, $productId);
-
-        $review = new Review();
-        $review->product = $product;
-        $review->rating = rand(1, 5);
-        $review->description = $description;
-
-        $this->em->persist($review);
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-
-        return $review->id;
     }
 }

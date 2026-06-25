@@ -500,10 +500,10 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
         $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
 
-        $this->createReview($productId1, 'Review 1');
-        $this->createReview($productId2, 'Review 2');
-        $this->createReview($productId3, 'Review 3');
-        $this->createReview($productId4, 'Review 4');
+        $this->createReview($productId1, 'Review 1', rand(1, 5));
+        $this->createReview($productId2, 'Review 2', rand(1, 5));
+        $this->createReview($productId3, 'Review 3', rand(1, 5));
+        $this->createReview($productId4, 'Review 4', rand(1, 5));
 
         /** @var array $result */
         $result = $this->em->createQuery(
@@ -549,10 +549,10 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
         $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
 
-        $this->createReview($productId1, 'Review 1');
-        $this->createReview($productId2, 'Review 2');
-        $this->createReview($productId3, 'Review 3');
-        $this->createReview($productId4, 'Review 4');
+        $this->createReview($productId1, 'Review 1', rand(1, 5));
+        $this->createReview($productId2, 'Review 2', rand(1, 5));
+        $this->createReview($productId3, 'Review 3', rand(1, 5));
+        $this->createReview($productId4, 'Review 4', rand(1, 5));
 
         // AVG totalRevenue = (60+20+0+40)/4 = 30
 
@@ -591,21 +591,5 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         self::assertSame('Product 4', $result[1]['name']);
         self::assertSame(40.0, $result[1]['totalRevenue']);
-    }
-
-    private function createReview(int $productId, string $description): void
-    {
-        $product = $this->em->find(Product::class, $productId);
-
-        $review = new Review();
-        $review->product = $product;
-        $review->rating = rand(1, 5);
-        $review->description = $description;
-
-        $this->em->persist($review);
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
     }
 }

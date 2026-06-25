@@ -9,7 +9,7 @@ use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entit
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
-final class FormulaSingleInheritedTest extends SingleInheritedOrmTestCase
+final class SelectFormulaTest extends SingleInheritedOrmTestCase
 {
     /**
      * Test that formula fields loaded via DQL have the correct default values when there are no orders
@@ -162,7 +162,7 @@ final class FormulaSingleInheritedTest extends SingleInheritedOrmTestCase
     public function testRelationFindLazyLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [30.00, 40.00]);
-        $reviewId = $this->createReview($productId, 'Test review');
+        $reviewId = $this->createReview($productId, 'Test review', rand(1, 5));
 
         $found = $this->em->find(Review::class, $reviewId);
 
@@ -187,7 +187,7 @@ final class FormulaSingleInheritedTest extends SingleInheritedOrmTestCase
     public function testRelationDqlEagerLoadSingleEntity(): void
     {
         $productId = $this->createProductWithOrderItems($this->makeProduct('Reviewed Product'), [35.00, 45.00]);
-        $reviewId = $this->createReview($productId, 'Test review');
+        $reviewId = $this->createReview($productId, 'Test review', rand(1, 5));
 
         $found = $this->em->createQuery('SELECT r, p FROM ' . Review::class . ' r JOIN r.product p WHERE r.id = :id')
             ->setParameter('id', $reviewId)
@@ -262,10 +262,10 @@ final class FormulaSingleInheritedTest extends SingleInheritedOrmTestCase
         $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'));                        // orderCount=0, totalRevenue=0
         $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'), [10.00, 30.00]);        // orderCount=2, totalRevenue=40
 
-        $this->createReview($productId1, 'Review 1');
-        $this->createReview($productId2, 'Review 2');
-        $this->createReview($productId3, 'Review 3');
-        $this->createReview($productId4, 'Review 4');
+        $this->createReview($productId1, 'Review 1', rand(1, 5));
+        $this->createReview($productId2, 'Review 2', rand(1, 5));
+        $this->createReview($productId3, 'Review 3', rand(1, 5));
+        $this->createReview($productId4, 'Review 4', rand(1, 5));
 
         // AVG totalRevenue = (60+20+0+40)/4 = 30
 
@@ -392,28 +392,6 @@ final class FormulaSingleInheritedTest extends SingleInheritedOrmTestCase
 
             $this->em->clear();
         }
-    }
-
-    /**
-     * Helper method to create a review and return its ID
-     */
-    private function createReview(int $productId, string $description): int
-    {
-        // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(SingleProduct::class, $productId);
-
-        $review = new Review();
-        $review->product = $product;
-        $review->rating = rand(1, 5);
-        $review->description = $description;
-
-        $this->em->persist($review);
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-
-        return $review->id;
     }
 
     /**

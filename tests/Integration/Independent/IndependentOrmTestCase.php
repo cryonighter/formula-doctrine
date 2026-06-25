@@ -5,6 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Review;
 use Cryonighter\FormulaDoctrine\Tests\Integration\OrmTestCase;
 
 class IndependentOrmTestCase extends OrmTestCase
@@ -51,6 +52,28 @@ class IndependentOrmTestCase extends OrmTestCase
         $this->queryLogger->reset();
 
         return $product->id;
+    }
+
+    /**
+     * Helper method to create a review and return its ID
+     */
+    protected function createReview(int $productId, string $description, int $rating): int
+    {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(Product::class, $productId);
+
+        $review = new Review();
+        $review->product = $product;
+        $review->rating = $rating;
+        $review->description = $description;
+
+        $this->em->persist($review);
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+
+        return $review->id;
     }
 
     /**

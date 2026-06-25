@@ -13,23 +13,23 @@ final class NestedSubqueryFormulaTest extends IndependentOrmTestCase
     {
         // Product 1: 3 order items, totalRevenue=90, has a high-rated review → qualifies at all levels
         $productId1 = $this->createProductWithOrderItems($this->makeProduct('Product 1'), [20.00, 30.00, 40.00]);
-        $this->createReview($productId1, 5);
+        $this->createReview($productId1, 'Review for product ' . $productId1, 5);
 
         // Product 2: 2 order items, totalRevenue=50, has a low-rated review → filtered out at level 4
         $productId2 = $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 30.00]);
-        $this->createReview($productId2, 2);
+        $this->createReview($productId2, 'Review for product ' . $productId2, 2);
 
         // Product 3: 1 order item with low price, totalRevenue=5 → filtered out at level 3 (price too low)
         $productId3 = $this->createProductWithOrderItems($this->makeProduct('Product 3'), [5.00]);
-        $this->createReview($productId3, 5);
+        $this->createReview($productId3, 'Review for product ' . $productId3, 5);
 
         // Product 4: no order items, totalRevenue=0 → filtered out at level 2 (below avg revenue)
         $productId4 = $this->createProductWithOrderItems($this->makeProduct('Product 4'));
-        $this->createReview($productId4, 5);
+        $this->createReview($productId4, 'Review for product ' . $productId4, 5);
 
         // Product 5: 2 order items, totalRevenue=70, has a high-rated review → qualifies at all levels
         $productId5 = $this->createProductWithOrderItems($this->makeProduct('Product 5'), [30.00, 40.00]);
-        $this->createReview($productId5, 4);
+        $this->createReview($productId5, 'Review for product ' . $productId5, 4);
 
         /** @var Rating[] $ratings */
         $ratings = $this->em->createQuery(
@@ -92,21 +92,5 @@ final class NestedSubqueryFormulaTest extends IndependentOrmTestCase
 
         self::assertSame('Product 5', $ratings[1]->product->name);
         self::assertSame(70.0, $ratings[1]->product->totalRevenue);
-    }
-
-    private function createReview(int $productId, int $rating): void
-    {
-        $product = $this->em->find(Product::class, $productId);
-
-        $review = new Review();
-        $review->product = $product;
-        $review->rating = $rating;
-        $review->description = 'Review for ' . $product->name;
-
-        $this->em->persist($review);
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
     }
 }
