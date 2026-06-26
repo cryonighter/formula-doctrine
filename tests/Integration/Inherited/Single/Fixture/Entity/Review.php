@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity;
 
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -22,4 +23,7 @@ class Review
 
     #[ORM\Column]
     public string $description;
+
+    #[ORM\Column(type: 'datetime_immutable')]
+    public DateTimeImmutable $created;
 }

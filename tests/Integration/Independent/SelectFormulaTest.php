@@ -5,6 +5,7 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Review;
+use DateTimeImmutable;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\Proxy;
 
@@ -358,6 +359,41 @@ final class SelectFormulaTest extends IndependentOrmTestCase
         self::assertCount(1, $this->queryLogger->getQueries());
     }
 
+    public function testDqlDateTimeImmutableFormulaFieldIsHydratedCorrectly(): void
+    {
+        $date1 = new DateTimeImmutable('2024-01-15 10:00:00');
+        $date2 = new DateTimeImmutable('2024-03-20 12:00:00');
+        $date3 = new DateTimeImmutable('2024-06-01 08:00:00');
+
+        $productId1 = $this->createProductWithOrderItems($this->makeProduct('Product 1'));
+        $productId2 = $this->createProductWithOrderItems($this->makeProduct('Product 2'));
+        $this->createProductWithOrderItems($this->makeProduct('Product 3'));
+
+        // Product 3 has no reviews — lastReview should be null
+        $this->createReview($productId1, 'Review 1', rand(1, 5), $date1);
+        $this->createReview($productId2, 'Review 2', rand(1, 5), $date2);
+        $this->createReview($productId2, 'Review 2', rand(1, 5), $date3);
+
+        /** @var Product[] $products */
+        $products = $this->em
+            ->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.id ASC')
+            ->getResult();
+
+        // Exactly 1 query — all formula substitutions in one SQL
+        self::assertCount(1, $this->queryLogger->getQueries());
+
+        // Product 1 — one review
+        self::assertInstanceOf(DateTimeImmutable::class, $products[0]->lastReview);
+        self::assertSame($date1->format('Y-m-d H:i:s'), $products[0]->lastReview->format('Y-m-d H:i:s'));
+
+        // Product 2 — two reviews, MAX should win
+        self::assertInstanceOf(DateTimeImmutable::class, $products[1]->lastReview);
+        self::assertSame($date3->format('Y-m-d H:i:s'), $products[1]->lastReview->format('Y-m-d H:i:s'));
+
+        // Product 3 — no reviews
+        self::assertNull($products[2]->lastReview);
+    }
+
     /**
      * Helper method to create multiple reviews for a product
      */
@@ -371,6 +407,7 @@ final class SelectFormulaTest extends IndependentOrmTestCase
             $review->product = $product;
             $review->rating = $rating;
             $review->description = 'Test review';
+            $review->created = new DateTimeImmutable();
 
             $this->em->persist($review);
         }

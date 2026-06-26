@@ -8,6 +8,7 @@ use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entit
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\Review;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\SingleProduct;
 use Cryonighter\FormulaDoctrine\Tests\Integration\OrmTestCase;
+use DateTimeImmutable;
 
 class SingleInheritedOrmTestCase extends OrmTestCase
 {
@@ -36,29 +37,6 @@ class SingleInheritedOrmTestCase extends OrmTestCase
     }
 
     /**
-     * Helper method to create multiple reviews for a product
-     */
-    protected function createManyReviews(int $productId, array $ratings): void
-    {
-        // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(SingleProduct::class, $productId);
-
-        foreach ($ratings as $rating) {
-            $review = new Review();
-            $review->product = $product;
-            $review->rating = $rating;
-            $review->description = 'Test review';
-
-            $this->em->persist($review);
-        }
-
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-    }
-
-    /**
      * Helper method to persist product and order items for him
      */
     protected function createProductWithOrderItems(SingleProduct $product, array $prices = []): int
@@ -81,7 +59,7 @@ class SingleInheritedOrmTestCase extends OrmTestCase
     /**
      * Helper method to create a review and return its ID
      */
-    protected function createReview(int $productId, string $description, int $rating): int
+    protected function createReview(int $productId, string $description, int $rating, ?DateTimeImmutable $created = null): int
     {
         // To simplify debugging SqlWalker, it is better to use the find() function
         $product = $this->em->find(SingleProduct::class, $productId);
@@ -90,6 +68,7 @@ class SingleInheritedOrmTestCase extends OrmTestCase
         $review->product = $product;
         $review->rating = $rating;
         $review->description = $description;
+        $review->created = $created ?? new DateTimeImmutable();
 
         $this->em->persist($review);
         $this->em->flush();
@@ -98,6 +77,30 @@ class SingleInheritedOrmTestCase extends OrmTestCase
         $this->queryLogger->reset();
 
         return $review->id;
+    }
+
+    /**
+     * Helper method to create multiple reviews for a product
+     */
+    protected function createManyReviews(int $productId, array $ratings): void
+    {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(SingleProduct::class, $productId);
+
+        foreach ($ratings as $rating) {
+            $review = new Review();
+            $review->product = $product;
+            $review->rating = $rating;
+            $review->description = 'Test review';
+            $review->created = new DateTimeImmutable();
+
+            $this->em->persist($review);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
     }
 
     /**

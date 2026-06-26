@@ -4,6 +4,9 @@ namespace Cryonighter\FormulaDoctrine\Metadata;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use Cryonighter\FormulaDoctrine\Query\FormulaExtractionWalker;
+use DateTime;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query;
 use ReflectionClass;
@@ -30,6 +33,10 @@ final class FormulaMetadataFactory
         'integer' => 'integer',
         'boolean' => 'boolean',
         'double'  => 'float',
+        // date/time types
+        DateTime::class          => 'datetime',
+        DateTimeImmutable::class => 'datetime_immutable',
+        DateTimeInterface::class => 'datetime_immutable',
     ];
 
     /**

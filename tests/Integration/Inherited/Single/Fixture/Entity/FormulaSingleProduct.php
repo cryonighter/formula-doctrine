@@ -3,6 +3,7 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -24,4 +25,7 @@ class FormulaSingleProduct extends SingleProduct
     #[Formula('(SELECT MAX(oi.price) FROM order_items_inherited_single oi WHERE oi.product_id = {this}.id)')]
     // #[Formula('SELECT MAX(oi.price) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     public ?float $maxItemPrice = null;
+
+    #[Formula('(SELECT MAX(r.created) FROM reviews_inherited_single r WHERE r.product_id = {this}.id)')]
+    public ?DateTimeImmutable $lastReview = null;
 }

@@ -7,6 +7,7 @@ use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Pro
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Review;
 use Cryonighter\FormulaDoctrine\Tests\Integration\OrmTestCase;
+use DateTimeImmutable;
 
 class IndependentOrmTestCase extends OrmTestCase
 {
@@ -57,7 +58,7 @@ class IndependentOrmTestCase extends OrmTestCase
     /**
      * Helper method to create a review and return its ID
      */
-    protected function createReview(int $productId, string $description, int $rating): int
+    protected function createReview(int $productId, string $description, int $rating, ?DateTimeImmutable $created = null): int
     {
         // To simplify debugging SqlWalker, it is better to use the find() function
         $product = $this->em->find(Product::class, $productId);
@@ -66,6 +67,7 @@ class IndependentOrmTestCase extends OrmTestCase
         $review->product = $product;
         $review->rating = $rating;
         $review->description = $description;
+        $review->created = $created ?? new DateTimeImmutable();
 
         $this->em->persist($review);
         $this->em->flush();

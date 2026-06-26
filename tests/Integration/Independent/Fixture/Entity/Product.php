@@ -3,6 +3,7 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -32,4 +33,7 @@ class Product
     #[Formula('(SELECT MAX(oi.price) FROM order_items oi WHERE oi.product_id = {this}.id)')]
     // #[Formula('SELECT MAX(oi.price) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
     public ?float $maxItemPrice = null;
+
+    #[Formula('(SELECT MAX(r.created) FROM reviews r WHERE r.product_id = {this}.id)')]
+    public ?DateTimeImmutable $lastReview = null;
 }
