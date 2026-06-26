@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
 
+use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Category;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
@@ -33,6 +34,14 @@ class IndependentOrmTestCase extends OrmTestCase
         $item->quantity = 1;
 
         return $item;
+    }
+
+    protected function makeCategory(string $name): Category
+    {
+        $category = new Category();
+        $category->name = $name;
+
+        return $category;
     }
 
     /**
@@ -76,6 +85,27 @@ class IndependentOrmTestCase extends OrmTestCase
         $this->queryLogger->reset();
 
         return $review->id;
+    }
+
+    /**
+     * Helper method for create a category with products
+     */
+    protected function createCategoryWithProducts(Category $category, array $products = []): int
+    {
+        $productRepository = $this->em->getRepository(Product::class);
+
+        foreach ($productRepository->findBy(['id' => $products]) as $product) {
+            $category->products->add($product);
+            $product->categories->add($category);
+        }
+
+        $this->em->persist($category);
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+
+        return $category->id;
     }
 
     /**

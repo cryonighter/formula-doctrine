@@ -2,6 +2,7 @@
 
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single;
 
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\Category;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\FormulaSingleProduct;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\OrderItem;
 use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\Rating;
@@ -34,6 +35,14 @@ class SingleInheritedOrmTestCase extends OrmTestCase
         $item->quantity = 1;
 
         return $item;
+    }
+
+    protected function makeCategory(string $name): Category
+    {
+        $category = new Category();
+        $category->name = $name;
+
+        return $category;
     }
 
     /**
@@ -101,6 +110,27 @@ class SingleInheritedOrmTestCase extends OrmTestCase
         $this->em->clear();
 
         $this->queryLogger->reset();
+    }
+
+    /**
+     * Helper method for create a category with products
+     */
+    protected function createCategoryWithProducts(Category $category, array $products = []): int
+    {
+        $productRepository = $this->em->getRepository(FormulaSingleProduct::class);
+
+        foreach ($productRepository->findBy(['id' => $products]) as $product) {
+            $category->products->add($product);
+            $product->categories->add($category);
+        }
+
+        $this->em->persist($category);
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+
+        return $category->id;
     }
 
     /**

@@ -4,6 +4,8 @@ namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
 use DateTimeImmutable;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -28,4 +30,10 @@ class FormulaSingleProduct extends SingleProduct
 
     #[Formula('(SELECT MAX(r.created) FROM reviews_inherited_single r WHERE r.product_id = {this}.id)')]
     public ?DateTimeImmutable $lastReview = null;
+
+    public function __construct(
+        #[ORM\ManyToMany(targetEntity: Category::class, mappedBy: 'products')]
+        public Collection $categories= new ArrayCollection(),
+    ) {
+    }
 }

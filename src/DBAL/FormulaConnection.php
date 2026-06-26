@@ -47,64 +47,66 @@ final class FormulaConnection extends AbstractConnectionMiddleware
     {
         $command = strtoupper(substr(ltrim($sql), 0, strpos(ltrim($sql), ' ')));
 
-        // Fast path: only process SELECT statements from BasicEntityPersister.
-        // BasicEntityPersister always generates aliases like t0, t1, t4 etc.
         if (!in_array($command, ['SELECT', 'WITH', 'INSERT', 'UPDATE', 'DELETE'])) {
             return $sql;
         }
 
-        $tableAliases = $this->extractTableAliases($sql);
+        $formulaMap = $this->groupFormulasByTableNameAndColumnAlias();
 
-        if (!$tableAliases) {
+        if (!$formulaMap) {
             return $sql;
         }
 
-        $formulaAliases = $this->getFormulaAliases();
+        do {
+            $prevSqlState = $sql;
 
-        if (!$formulaAliases) {
-            return $sql;
-        }
+            $tableAliases = $this->extractTableAliases($sql);
 
-        foreach ($tableAliases as ['table' => $tableName, 'alias' => $tableAlias]) {
-            foreach ($formulaAliases[$tableName] ?? [] as $columnAlias => $meta) {
-                $columnName = $tableAlias ? "$tableAlias.$columnAlias" : $columnAlias;
-
-                $countColumnName = substr_count($sql, $columnName);
-
-                if (!$countColumnName) {
-                    continue;
-                }
-
-                $formulaSql = str_replace('{this}', $tableAlias ?? $tableName, $meta->sql);
-
-                if ($countColumnName === 1 || !in_array($command, ['SELECT', 'WITH'])) {
-                    $sql = str_replace($columnName, $formulaSql, $sql);
-
-                    continue;
-                }
-
-                $columnNameEscaped = preg_quote($columnName);
-                $regExp = "/$columnNameEscaped\s+(AS|as)\s+(\w+)([\s,])/";
-                preg_match($regExp, $sql, $matches);
-
-                if (empty($matches)) {
-                    $sql = str_replace($columnName, $formulaSql, $sql);
-
-                    continue;
-                }
-
-                $columnAlias = $matches[2];
-
-                $sql = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sql, 1);
-                $sql = str_replace($columnName, $columnAlias, $sql);
-
-                // When using the #Formula and #Column attributes simultaneously, the field is somehow duplicated in the query
-                // However, we remove metadata created via #Column if the field contains the #Formula attribute
-                // I suspect that the find() mechanisms read the attribute contents directly, not the metadata
-                // In any case, I decided not to investigate the cause of this behavior and simply removed the duplicates
-                $sql = preg_replace("/$columnAlias\s+(AS|as)\s+$columnAlias([\s,])/", '', $sql);
+            if (!$tableAliases) {
+                return $sql;
             }
-        }
+
+            foreach ($tableAliases as ['table' => $tableName, 'alias' => $tableAlias]) {
+                foreach ($formulaMap[$tableName] ?? [] as $columnAlias => $meta) {
+                    $columnName = $tableAlias ? "$tableAlias.$columnAlias" : $columnAlias;
+
+                    $countColumnName = substr_count($sql, $columnName);
+
+                    if (!$countColumnName) {
+                        continue;
+                    }
+
+                    $formulaSql = str_replace('{this}', $tableAlias ?? $tableName, $meta->sql);
+
+                    if ($countColumnName === 1 || !in_array($command, ['SELECT', 'WITH'])) {
+                        $sql = str_replace($columnName, $formulaSql, $sql);
+
+                        continue;
+                    }
+
+                    $columnNameEscaped = preg_quote($columnName);
+                    $regExp = "/$columnNameEscaped\s+(AS|as)\s+(\w+)([\s,])/";
+                    preg_match($regExp, $sql, $matches);
+
+                    if (empty($matches)) {
+                        $sql = str_replace($columnName, $formulaSql, $sql);
+
+                        continue;
+                    }
+
+                    $columnAlias = $matches[2];
+
+                    $sql = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sql, 1);
+                    $sql = str_replace($columnName, $columnAlias, $sql);
+
+                    // When using the #Formula and #Column attributes simultaneously, the field is somehow duplicated in the query
+                    // However, we remove metadata created via #Column if the field contains the #Formula attribute
+                    // I suspect that the find() mechanisms read the attribute contents directly, not the metadata
+                    // In any case, I decided not to investigate the cause of this behavior and simply removed the duplicates
+                    $sql = preg_replace("/$columnAlias\s+(AS|as)\s+$columnAlias([\s,])/", '', $sql);
+                }
+            }
+        } while ($sql !== $prevSqlState);
 
         return $sql;
     }
@@ -169,7 +171,7 @@ final class FormulaConnection extends AbstractConnectionMiddleware
      *
      * @return array<string, array<string, FormulaMetadata>>
      */
-    private function getFormulaAliases(): array
+    private function groupFormulasByTableNameAndColumnAlias(): array
     {
         $result = [];
 

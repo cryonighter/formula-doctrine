@@ -3,7 +3,9 @@
 namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity;
 
 use Cryonighter\FormulaDoctrine\Attribute\Formula;
+use Doctrine\Common\Collections\ArrayCollection;
 use DateTimeImmutable;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -36,4 +38,10 @@ class Product
 
     #[Formula('(SELECT MAX(r.created) FROM reviews r WHERE r.product_id = {this}.id)')]
     public ?DateTimeImmutable $lastReview = null;
+
+    public function __construct(
+        #[ORM\ManyToMany(targetEntity: Category::class, mappedBy: 'products')]
+        public Collection $categories= new ArrayCollection(),
+    ) {
+    }
 }
