@@ -57,7 +57,13 @@ final class FormulaConnection extends AbstractConnectionMiddleware
             return $sql;
         }
 
+        $i = 0;
+
         do {
+            if ($i++ >= 10) {
+                throw new RuntimeException('The formulas are nested too deeply (maybe they are looped)');
+            }
+
             $prevSqlState = $sql;
 
             $tableAliases = $this->extractTableAliases($sql);
