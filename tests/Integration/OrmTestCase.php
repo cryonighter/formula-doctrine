@@ -61,7 +61,11 @@ class OrmTestCase extends TestCase
     protected function tearDown(): void
     {
         $this->em->close();
+
+        // Clearing the registry to avoid memory leaks
         unset($this->em);
+        unset($this->registry);
+        unset($this->queryLogger);
     }
 
     protected function createEntityManager(QueryLogger $queryLogger, bool $useCache): EntityManagerInterface
