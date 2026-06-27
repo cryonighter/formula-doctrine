@@ -1,10 +1,10 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\FormulaJoinedProduct;
 
-final class GroupByFormulaTest extends IndependentOrmTestCase
+final class GroupByFormulaTest extends JoinedInheritedOrmTestCase
 {
     public function testDqlGroupByFormulaField(): void
     {
@@ -17,7 +17,7 @@ final class GroupByFormulaTest extends IndependentOrmTestCase
 
         /** @var array $result */
         $result = $this->em->createQuery(
-            'SELECT p.orderCount, COUNT(p.id) as productCount FROM ' . Product::class . ' p GROUP BY p.orderCount'
+            'SELECT p.orderCount, COUNT(p.id) as productCount FROM ' . FormulaJoinedProduct::class . ' p GROUP BY p.orderCount'
         )->getResult();
 
         // Exactly 1 query — all formula substitutions in one SQL
@@ -25,7 +25,7 @@ final class GroupByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         // The orderCount field formula appears once: in the CASE WHEN statement
         // The GROUP BY statement must use the alias from the first SELECT statement
@@ -60,7 +60,7 @@ final class GroupByFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.orderCount, COUNT(p.id) as cnt ' .
-            'FROM ' . Product::class . ' p GROUP BY p.name, p.orderCount ' .
+            'FROM ' . FormulaJoinedProduct::class . ' p GROUP BY p.name, p.orderCount ' .
             'ORDER BY p.name'
         )->getResult();
 
@@ -69,7 +69,7 @@ final class GroupByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         // The orderCount field formula appears once: in the CASE WHEN statement
         // The GROUP BY statement must use the alias from the first SELECT statement
