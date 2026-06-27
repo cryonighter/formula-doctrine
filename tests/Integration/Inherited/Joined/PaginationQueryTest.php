@@ -1,10 +1,10 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\FormulaJoinedProduct;
 
-final class PaginationQueryTest extends IndependentOrmTestCase
+final class PaginationQueryTest extends JoinedInheritedOrmTestCase
 {
     /**
      * Test that DQL pagination works correctly
@@ -18,7 +18,7 @@ final class PaginationQueryTest extends IndependentOrmTestCase
 
         $resultOne = $this->em->createQueryBuilder()
             ->select('p')
-            ->from(Product::class, 'p')
+            ->from(FormulaJoinedProduct::class, 'p')
             ->setMaxResults($limit)
             ->setFirstResult($offset)
             ->getQuery()
@@ -29,9 +29,9 @@ final class PaginationQueryTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
-        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(FormulaJoinedProduct::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
 
         // The orderCount field formula appears once: in the SELECT statement
         self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
@@ -52,7 +52,7 @@ final class PaginationQueryTest extends IndependentOrmTestCase
 
         $resultTwo = $this->em->createQueryBuilder()
             ->select('p')
-            ->from(Product::class, 'p')
+            ->from(FormulaJoinedProduct::class, 'p')
             ->setMaxResults($limit)
             ->setFirstResult($offset + 2)
             ->getQuery()
@@ -79,7 +79,7 @@ final class PaginationQueryTest extends IndependentOrmTestCase
         $limit = 3;
         $offset = 2;
 
-        $resultOne = $this->em->getRepository(Product::class)
+        $resultOne = $this->em->getRepository(FormulaJoinedProduct::class)
             ->findBy([], [], $limit, $offset);
 
         // Exactly 1 query — all formula substitutions in one SQL
@@ -87,9 +87,9 @@ final class PaginationQueryTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
-        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(FormulaJoinedProduct::class, 'maxItemPrice');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
 
         // The orderCount field formula appears once: in the SELECT statement
         self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
@@ -108,7 +108,7 @@ final class PaginationQueryTest extends IndependentOrmTestCase
 
         $this->queryLogger->reset();
 
-        $resultTwo = $this->em->getRepository(Product::class)
+        $resultTwo = $this->em->getRepository(FormulaJoinedProduct::class)
             ->findBy([], [], $limit, $offset + 2);
 
         // Exactly 1 query — all formula substitutions in one SQL
