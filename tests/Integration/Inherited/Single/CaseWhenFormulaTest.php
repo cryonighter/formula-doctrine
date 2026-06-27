@@ -1,11 +1,11 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Review;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\FormulaSingleProduct;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\Review;
 
-final class CaseWhenFormulaTest extends IndependentOrmTestCase
+final class CaseWhenFormulaTest extends SingleInheritedOrmTestCase
 {
     public function testDqlCaseWhenWithFormulaField(): void
     {
@@ -22,7 +22,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
             'WHEN p.totalRevenue < 50 THEN \'low\' ' .
             'WHEN p.totalRevenue < 100 THEN \'medium\' ' .
             'ELSE \'high\' END as revenueCategory ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.totalRevenue ASC'
         )
             ->getResult();
@@ -32,7 +32,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
 
         // The totalRevenue field formula appears four times: once in the SELECT statement
         // and three times in the CASE WHEN statement
@@ -70,7 +70,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
             'CASE WHEN p.orderCount = 0 THEN \'inactive\' ' .
             'WHEN p.maxItemPrice > 50 THEN \'premium\' ' .
             'ELSE \'standard\' END as productTier ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.name ASC'
         )
             ->getResult();
@@ -80,8 +80,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
-        $formulaMaxItemPrice = $this->registry->getForProperty(Product::class, 'maxItemPrice');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
+        $formulaMaxItemPrice = $this->registry->getForProperty(FormulaSingleProduct::class, 'maxItemPrice');
 
         // The orderCount field formula appears once: in the CASE WHEN statement
         self::assertCountFormulaSubqueries(1, $mainSql, $formulaOrderCount);
@@ -116,10 +116,10 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
             'SELECT p.name, p.totalRevenue, ' .
             'CASE ' .
             '    WHEN p.totalRevenue = 0 THEN \'none\' ' .
-            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) THEN \'above_avg\' ' .
+            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . FormulaSingleProduct::class . ' p2) THEN \'above_avg\' ' .
             '    ELSE \'below_avg\' ' .
             'END as revenueStatus ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -129,7 +129,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
 
         // The totalRevenue field formula appears four times: once in the SELECT statement,
         // twice in the CASE WHEN statement, and once in the AVG subquery
@@ -172,11 +172,11 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue, ' .
             'CASE ' .
-            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) AND p.orderCount > 0 THEN \'above_avg_active\' ' .
+            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . FormulaSingleProduct::class . ' p2) AND p.orderCount > 0 THEN \'above_avg_active\' ' .
             '    WHEN p.orderCount = 0 THEN \'inactive\' ' .
             '    ELSE \'below_avg_active\' ' .
             'END as productStatus ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -186,8 +186,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears three times: once in SELECT, once in WHEN condition, once in AVG subquery
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -230,10 +230,10 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue, ' .
             'CASE ' .
-            '    WHEN EXISTS (SELECT 1 FROM ' . Product::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > 0) THEN \'active\' ' .
+            '    WHEN EXISTS (SELECT 1 FROM ' . FormulaSingleProduct::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > 0) THEN \'active\' ' .
             '    ELSE \'inactive\' ' .
             'END as activityStatus ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -243,8 +243,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears once:  in SELECT statement
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -283,11 +283,11 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue, ' .
             'CASE ' .
-            '    WHEN NOT EXISTS (SELECT 1 FROM ' . Product::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > 0) THEN \'no_orders\' ' .
+            '    WHEN NOT EXISTS (SELECT 1 FROM ' . FormulaSingleProduct::class . ' p2 WHERE p2.id = p.id AND p2.orderCount > 0) THEN \'no_orders\' ' .
             '    WHEN p.totalRevenue > 50 THEN \'high_revenue\' ' .
             '    ELSE \'normal\' ' .
             'END as productStatus ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -297,8 +297,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears twice: once in SELECT, once in WHEN p.totalRevenue > 50
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -340,7 +340,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY CASE WHEN p.orderCount = 0 THEN 1 ELSE 0 END ASC, p.orderCount DESC'
         )
             ->getResult();
@@ -350,7 +350,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The orderCount field formula appears twice: once in the CASE WHEN statement, once in the ORDER By statement
         self::assertCountFormulaSubqueries(2, $mainSql, $formulaOrderCount);
@@ -376,9 +376,9 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'ORDER BY CASE ' .
-            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) THEN 0 ' .
+            '    WHEN p.totalRevenue > (SELECT AVG(p2.totalRevenue) FROM ' . FormulaSingleProduct::class . ' p2) THEN 0 ' .
             '    ELSE 1 ' .
             'END ASC, p.totalRevenue DESC'
         )
@@ -389,7 +389,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
 
         // The totalRevenue field formula appears three times: once in SELECT, once in AVG subquery
         // The CASE WHEN and ORDER BY statement must use the alias from the first SELECT statement
@@ -414,7 +414,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'WHERE CASE WHEN p.orderCount > 0 THEN p.totalRevenue ELSE 0 END > :minRevenue ' .
             'ORDER BY p.totalRevenue DESC'
         )
@@ -426,8 +426,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears once: in SELECT statement
         // The CASE WHEN and ORDER BY statement must use the alias from the first SELECT statement
@@ -460,7 +460,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.orderCount, COUNT(p.id) as cnt ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'GROUP BY p.orderCount ' .
             'HAVING CASE WHEN p.orderCount > 0 THEN SUM(p.totalRevenue) ELSE 0 END > :minRevenue ' .
             'ORDER BY p.orderCount ASC'
@@ -473,8 +473,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears once: inside SUM() in CASE WHEN
         self::assertCountFormulaSubqueries(1, $mainSql, $formulaTotalRevenue);
@@ -511,7 +511,7 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'JOIN ' . Review::class . ' r WITH r.product = p AND CASE WHEN p.orderCount > 0 THEN p.totalRevenue ELSE 0 END > :minRevenue ' .
             'ORDER BY p.totalRevenue DESC'
         )
@@ -523,8 +523,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears once: in SELECT statement
         // The JOIN and ORDER BY statement must use the alias from the first SELECT statement
@@ -563,9 +563,9 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue ' .
-            'FROM ' . Product::class . ' p ' .
+            'FROM ' . FormulaSingleProduct::class . ' p ' .
             'JOIN ' . Review::class . ' r WITH r.product = p ' .
-            '    AND CASE WHEN p.orderCount > 0 THEN p.totalRevenue ELSE 0 END > (SELECT AVG(p2.totalRevenue) FROM ' . Product::class . ' p2) ' .
+            '    AND CASE WHEN p.orderCount > 0 THEN p.totalRevenue ELSE 0 END > (SELECT AVG(p2.totalRevenue) FROM ' . FormulaSingleProduct::class . ' p2) ' .
             'ORDER BY p.totalRevenue DESC'
         )
             ->getResult();
@@ -575,8 +575,8 @@ final class CaseWhenFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
 
         // The totalRevenue field formula appears three times: once in SELECT, once in AVG subquery
         // The CASE WHEN and ORDER BY statement must use the alias from the first SELECT statement
