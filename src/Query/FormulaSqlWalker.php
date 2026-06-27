@@ -51,6 +51,9 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     final public const HINT_REGISTRY = 'formula_doctrine.registry';
 
+    /** Spaces are required, without them the regular expression will not work */
+    private const FROM_SPLIT_MARKER = ' /* __FORMULA_FROM_SPLIT_MARKER__ */ ';
+
     public function getFinalizer(DeleteStatement|SelectStatement|UpdateStatement $ast): SqlFinalizer
     {
         if ($ast instanceof UpdateStatement || $ast instanceof DeleteStatement) {
@@ -68,6 +71,11 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             $ast instanceof UpdateStatement => $walker->createUpdateStatementExecutor($ast),
             $ast instanceof DeleteStatement => $walker->createDeleteStatementExecutor($ast),
         };
+    }
+
+    public function walkFromClause(FromClause $fromClause): string
+    {
+        return self::FROM_SPLIT_MARKER . parent::walkFromClause($fromClause);
     }
 
     final protected function createSqlForFinalizer(SelectStatement $ast): string
@@ -90,8 +98,6 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      */
     final protected function applyFormulas(string $sql, SelectStatement|UpdateStatement|DeleteStatement $ast): string
     {
-        $rootTableNameAndAlias = $ast instanceof SelectStatement ? $this->getRootTableNameAndAliasAsString($ast->fromClause) : null;
-
         foreach ($this->getFormulasByAlias($ast) as $sqlTableAlias => $formulas) {
             foreach ($formulas as $meta) {
                 $columnName = "$sqlTableAlias.$meta->alias";
@@ -124,16 +130,16 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                     continue;
                 }
 
-                $columnAlias = $matches[2];
+                [2 => $columnAlias, 3 => $lastComma] = $matches;
 
-                $sqlArr = explode(" FROM $rootTableNameAndAlias ", $sql);
+                $sqlArr = explode(self::FROM_SPLIT_MARKER, $sql);
 
                 if (count($sqlArr) !== 2) {
                     throw new RuntimeException('Unexpected SQL query structure');
                 }
 
                 // Replacing a field declaration with a formula in SELECT (before FROM)
-                $sqlArr[0] = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$matches[3]}", $sqlArr[0]);
+                $sqlArr[0] = preg_replace($regExp, "$formulaSql AS {$columnAlias}{$lastComma}", $sqlArr[0]);
 
                 // Replace references to the field with a formula in SELECT (before FROM)
                 // Unfortunately, it is not possible to use aliases in SELECT, even if they are declared earlier
@@ -143,11 +149,11 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
                 // Replace other references to the formula field with an alias (after FROM)
                 $sqlArr[1] = str_replace($columnName, $columnAlias, $sqlArr[1]);
 
-                $sql = implode(" FROM $rootTableNameAndAlias ", $sqlArr);
+                $sql = implode(self::FROM_SPLIT_MARKER, $sqlArr);
             }
         }
 
-        return $sql;
+        return str_replace(self::FROM_SPLIT_MARKER, '', $sql);
     }
 
     /**
@@ -155,7 +161,7 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
      * that maps to an entity class with formula fields.
      *
      * Iterates over:
-     *   - root entity aliases (FROM clause)
+     *   - entity aliases (FROM clause)
      *   - join aliases (JOIN clause, including nested joins)
      *
      * Return map of SQL alias → list of FormulaMetadata for all
@@ -436,27 +442,5 @@ class FormulaSqlWalker extends SqlWalker implements OutputWalker
             ->getEntityManager()
             ->getClassMetadata($entityClass)
             ->getTableName();
-    }
-
-    private function getRootTableNameAndAliasAsString(FromClause $fromClause): string
-    {
-        $rootTableNameAndAlias = [];
-
-        foreach ($fromClause->identificationVariableDeclarations as $declaration) {
-            // Root alias declaration (FROM clause)
-            $rangeDeclaration = $declaration->rangeVariableDeclaration ?? null;
-
-            if ($rangeDeclaration !== null) {
-                $dqlAlias = $rangeDeclaration->aliasIdentificationVariable;
-                $entityClass = $rangeDeclaration->abstractSchemaName;
-
-                $tableName = $this->resolveTableName($entityClass);
-                $tableAlias = $this->getSQLTableAlias($tableName, $dqlAlias);
-
-                $rootTableNameAndAlias[] = "$tableName $tableAlias";
-            }
-        }
-
-        return implode(', ', $rootTableNameAndAlias);
     }
 }
