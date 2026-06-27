@@ -1,11 +1,11 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Rating;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\FormulaSingleProduct;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Single\Fixture\Entity\Rating;
 
-final class ImplicitJoinFormulaTest extends IndependentOrmTestCase
+final class ImplicitJoinFormulaTest extends SingleInheritedOrmTestCase
 {
     public function testDqlImplicitJoin(): void
     {
@@ -22,7 +22,7 @@ final class ImplicitJoinFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.orderCount, p.totalRevenue, r.stars ' .
-            'FROM ' . Product::class . ' p, ' . Rating::class . ' r ' .
+            'FROM ' . FormulaSingleProduct::class . ' p, ' . Rating::class . ' r ' .
             'WHERE r.product = p AND p.orderCount > :minOrders ' .
             'ORDER BY p.totalRevenue DESC'
         )
@@ -34,7 +34,7 @@ final class ImplicitJoinFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaSingleProduct::class, 'orderCount');
         $formulaStars = $this->registry->getForProperty(Rating::class, 'stars');
 
         // The orderCount field formula appears once: in the SELECT statement
@@ -73,7 +73,7 @@ final class ImplicitJoinFormulaTest extends IndependentOrmTestCase
         /** @var array $result */
         $result = $this->em->createQuery(
             'SELECT p.name, p.totalRevenue, p.maxItemPrice, r.stars ' .
-            'FROM ' . Product::class . ' p, ' . Rating::class . ' r ' .
+            'FROM ' . FormulaSingleProduct::class . ' p, ' . Rating::class . ' r ' .
             'WHERE r.product = p AND p.totalRevenue >= :minRevenue AND p.maxItemPrice IS NOT NULL AND r.stars >= :minStars ' .
             'ORDER BY r.stars DESC, p.maxItemPrice DESC'
         )
@@ -86,7 +86,7 @@ final class ImplicitJoinFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaSingleProduct::class, 'totalRevenue');
         $formulaStars = $this->registry->getForProperty(Rating::class, 'stars');
 
         // The totalRevenue field formula appears once: in the SELECT statement

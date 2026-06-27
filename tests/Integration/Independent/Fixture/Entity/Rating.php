@@ -20,7 +20,7 @@ class Rating
         public Product $product,
 
         // Readonly field formula
-        #[Formula('(SELECT (SUM(rv.rating) / COUNT(rv.id)) FROM reviews rv WHERE rv.product_id = {this}.id)')]
+        #[Formula('(SELECT (CAST(SUM(rv.rating) AS FLOAT) / COUNT(rv.id)) FROM reviews rv WHERE rv.product_id = {this}.id)')]
         public readonly float $stars = 0,
     ) {
     }

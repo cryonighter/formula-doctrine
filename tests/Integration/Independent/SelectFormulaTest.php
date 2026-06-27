@@ -393,28 +393,4 @@ final class SelectFormulaTest extends IndependentOrmTestCase
         // Product 3 — no reviews
         self::assertNull($products[2]->lastReview);
     }
-
-    /**
-     * Helper method to create multiple reviews for a product
-     */
-    private function createManyReviews(int $productId, array $ratings): void
-    {
-        // To simplify debugging SqlWalker, it is better to use the find() function
-        $product = $this->em->find(Product::class, $productId);
-
-        foreach ($ratings as $rating) {
-            $review = new Review();
-            $review->product = $product;
-            $review->rating = $rating;
-            $review->description = 'Test review';
-            $review->created = new DateTimeImmutable();
-
-            $this->em->persist($review);
-        }
-
-        $this->em->flush();
-        $this->em->clear();
-
-        $this->queryLogger->reset();
-    }
 }

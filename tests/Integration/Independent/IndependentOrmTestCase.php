@@ -88,6 +88,30 @@ class IndependentOrmTestCase extends OrmTestCase
     }
 
     /**
+     * Helper method to create multiple reviews for a product
+     */
+    protected function createManyReviews(int $productId, array $ratings): void
+    {
+        // To simplify debugging SqlWalker, it is better to use the find() function
+        $product = $this->em->find(Product::class, $productId);
+
+        foreach ($ratings as $rating) {
+            $review = new Review();
+            $review->product = $product;
+            $review->rating = $rating;
+            $review->description = 'Test review';
+            $review->created = new DateTimeImmutable();
+
+            $this->em->persist($review);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->queryLogger->reset();
+    }
+
+    /**
      * Helper method for create a category with products
      */
     protected function createCategoryWithProducts(Category $category, array $products = []): int
