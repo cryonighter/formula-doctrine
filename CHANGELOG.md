@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 
+## [1.4.0] - 2026-06-29
+### Added
+- Support for DateTime, DateTimeImmutable, and DateTimeInterface types in formula fields
+- Support for using formula fields in other formulas
+
+### Fixed
+- Various bugs related to entity inheritance
+
 ## [1.3.0] - 2026-06-25
 ### Added
 - Support subqueries with formula fields in DQL queries
@@ -67,3 +75,4 @@ This project adheres to [Semantic Versioning v2.0.0](http://semver.org/).
 [1.2.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.0
 [1.2.1]: https://github.com/cryonighter/formula-doctrine/tree/v1.2.1
 [1.3.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.3.0
+[1.4.0]: https://github.com/cryonighter/formula-doctrine/tree/v1.4.0

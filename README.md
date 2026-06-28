@@ -469,6 +469,44 @@ public int $orderCount = 0;
 > e.g. for compatibility with a specific reporting tool.
 
 
+### Nested Formulas
+
+A `#[Formula]` expression can reference a formula field of another entity.
+The entire chain is resolved into a **single SQL query**.
+
+```php
+#[ORM\Entity]
+class Customer
+{
+    #[ORM\ManyToOne(targetEntity: Country::class)]
+    public Country $country;
+
+    // DQL formula — exposed under alias 'orders'
+    #[Formula('SELECT COUNT(o) FROM App\Entity\Order o WHERE o.customer = {this}', alias: 'orders')]
+    public int $orderCount = 0;
+
+    // SQL formula — exposed by property name 'totalRevenue'
+    #[Formula('(SELECT COALESCE(SUM(oi.price), 0) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.customer_id = {this}.id)')]
+    public float $totalRevenue = 0.0;
+}
+
+#[ORM\Entity]
+class Country
+{
+    // SQL formula — references Customer.orderCount by its alias 'orders'
+    #[Formula('(SELECT COALESCE(SUM(c.orders), 0) FROM customers c WHERE c.country_id = {this}.id)')]
+    public int $customerOrderCount = 0;
+
+    // DQL formula — references Customer.totalRevenue by property name
+    #[Formula('SELECT COALESCE(SUM(c.totalRevenue), 0) FROM App\Entity\Customer c WHERE c.country = {this}')]
+    public float $customerRevenue = 0.0;
+}
+```
+> **Note:** In a **native SQL** expression, reference another formula field by
+> its **`alias`** if one is declared (e.g. `c.total`), or by the property name otherwise.
+> In a **DQL** expression, **always** use the property name (e.g. `c.orderCount`).
+
+
 ### UPDATE queries
 
 Formula fields can be used in the `WHERE` clause of DQL `UPDATE` queries —
