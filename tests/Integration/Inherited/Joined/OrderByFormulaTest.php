@@ -1,10 +1,10 @@
 <?php
 
-namespace Cryonighter\FormulaDoctrine\Tests\Integration\Independent;
+namespace Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined;
 
-use Cryonighter\FormulaDoctrine\Tests\Integration\Independent\Fixture\Entity\Product;
+use Cryonighter\FormulaDoctrine\Tests\Integration\Inherited\Joined\Fixture\Entity\FormulaJoinedProduct;
 
-final class OrderByFormulaTest extends IndependentOrmTestCase
+final class OrderByFormulaTest extends JoinedInheritedOrmTestCase
 {
     public function testDqlOrderByAsc(): void
     {
@@ -13,8 +13,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 3'));                       // orderCount=0, totalRevenue=0
         $this->createProductWithOrderItems($this->makeProduct('Product 4'), [25.00, 35.00]);       // orderCount=2, totalRevenue=60
 
-        /** @var Product[] $products */
-        $products = $this->em->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.orderCount ASC')
+        /** @var FormulaJoinedProduct[] $products */
+        $products = $this->em->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p ORDER BY p.orderCount ASC')
             ->getResult();
 
         // Exactly 1 query — all formula substitutions in one SQL
@@ -22,7 +22,7 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         // The orderCount field formula appears only: in the SELECT statement
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -52,8 +52,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 30.00, 35.00]); // orderCount=3, totalRevenue=90
         $this->createProductWithOrderItems($this->makeProduct('Product 4'));                        // orderCount=0, totalRevenue=0
 
-        /** @var Product[] $products */
-        $products = $this->em->getRepository(Product::class)->findBy(
+        /** @var FormulaJoinedProduct[] $products */
+        $products = $this->em->getRepository(FormulaJoinedProduct::class)->findBy(
             [],
             ['orderCount' => 'ASC']
         );
@@ -63,7 +63,7 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         // The orderCount field formula appears only: in the SELECT statement
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -92,14 +92,14 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]); // orderCount=3, totalRevenue=75
         $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 45.00]);        // orderCount=2, totalRevenue=80
 
-        /** @var Product[] $products */
-        $products = $this->em->createQuery('SELECT p FROM ' . Product::class . ' p ORDER BY p.orderCount DESC')
+        /** @var FormulaJoinedProduct[] $products */
+        $products = $this->em->createQuery('SELECT p FROM ' . FormulaJoinedProduct::class . ' p ORDER BY p.orderCount DESC')
             ->getResult();
 
         // Exactly 1 query — all formula substitutions in one SQL
         self::assertCount(1, $this->queryLogger->getQueries());
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
@@ -127,8 +127,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 2'), [20.00, 25.00, 30.00]); // orderCount=3, totalRevenue=75
         $this->createProductWithOrderItems($this->makeProduct('Product 3'), [35.00, 45.00]);        // orderCount=2, totalRevenue=80
 
-        /** @var Product[] $products */
-        $products = $this->em->getRepository(Product::class)->findBy(
+        /** @var FormulaJoinedProduct[] $products */
+        $products = $this->em->getRepository(FormulaJoinedProduct::class)->findBy(
             [],
             ['orderCount' => 'DESC']
         );
@@ -138,7 +138,7 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
 
         // The orderCount field formula appears only: in the SELECT statement
         // The ORDER BY statement must use the alias from the first SELECT statement
@@ -165,9 +165,9 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 3'), [25.00, 35.00, 40.00, 45.00]); // orderCount=4, totalRevenue=145
         $this->createProductWithOrderItems($this->makeProduct('Product 4'), [50.00, 55.00]);               // orderCount=2, totalRevenue=105
 
-        /** @var Product[] $products */
+        /** @var FormulaJoinedProduct[] $products */
         $products = $this->em->createQuery(
-            'SELECT p FROM ' . Product::class . ' p WHERE p.orderCount >= :minCount ORDER BY p.totalRevenue DESC'
+            'SELECT p FROM ' . FormulaJoinedProduct::class . ' p WHERE p.orderCount >= :minCount ORDER BY p.totalRevenue DESC'
         )
             ->setParameter('minCount', 2)
             ->getResult();
@@ -177,8 +177,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
 
         // The orderCount field formula appears only: in the SELECT statement
         // The WHERE statement must use the alias from the first SELECT statement
@@ -215,8 +215,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
         $this->createProductWithOrderItems($this->makeProduct('Product 6'), [35.00, 40.00, 45.00, 50.00]); // orderCount=4, totalRevenue=170
         $this->createProductWithOrderItems($this->makeProduct('Product 7'));                               // orderCount=0, totalRevenue=0
 
-        /** @var Product[] $products */
-        $products = $this->em->getRepository(Product::class)->findBy(
+        /** @var FormulaJoinedProduct[] $products */
+        $products = $this->em->getRepository(FormulaJoinedProduct::class)->findBy(
             ['orderCount' => 2],
             ['totalRevenue' => 'DESC']
         );
@@ -226,8 +226,8 @@ final class OrderByFormulaTest extends IndependentOrmTestCase
 
         $mainSql = $this->queryLogger->getQueries()[0];
 
-        $formulaOrderCount = $this->registry->getForProperty(Product::class, 'orderCount');
-        $formulaTotalRevenue = $this->registry->getForProperty(Product::class, 'totalRevenue');
+        $formulaOrderCount = $this->registry->getForProperty(FormulaJoinedProduct::class, 'orderCount');
+        $formulaTotalRevenue = $this->registry->getForProperty(FormulaJoinedProduct::class, 'totalRevenue');
 
         // The orderCount field formula appears only: in the SELECT statement
         // The WHERE statement must use the alias from the first SELECT statement
