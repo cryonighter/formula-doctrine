@@ -27,6 +27,10 @@ class Category
     #[Formula('SELECT COALESCE(SUM(p.orderCount), 0) FROM ' . Product::class . ' p JOIN p.categories cat WHERE cat = {this}')]
     public int $amountOrders = 0;
 
+    // SQL — uses Product.orderCount alias 'cnt' via join table
+    #[Formula('(SELECT COALESCE(SUM(p.cnt), 0) > 0 FROM products p JOIN category_products cp ON cp.product_id = p.id WHERE cp.category_id = {this}.id)')]
+    public bool $active = false;
+
     public function __construct(
         #[ORM\ManyToMany(targetEntity: Product::class, inversedBy: 'categories')]
         #[ORM\JoinTable(name: 'category_products')]

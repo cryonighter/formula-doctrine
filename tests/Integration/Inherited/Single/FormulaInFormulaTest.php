@@ -19,6 +19,7 @@ final class FormulaInFormulaTest extends SingleInheritedOrmTestCase
         $this->createCategoryWithProducts($this->makeCategory('Category 2'), [$productId3]);              // categoryRevenue=15, amountOrders=1
         $this->createCategoryWithProducts($this->makeCategory('Category 3'));                             // categoryRevenue=0,  amountOrders=0
 
+        /** @var Category[] $categories */
         $categories = $this->em
             ->createQuery('SELECT c FROM ' . Category::class . ' c ORDER BY c.id ASC')
             ->getResult();
@@ -90,6 +91,7 @@ final class FormulaInFormulaTest extends SingleInheritedOrmTestCase
         $this->createCategoryWithProducts($this->makeCategory('Category 5'), [$productId4, $productId5, $productId6]); // amountOrders=5, categoryRevenue=140
         $this->createCategoryWithProducts($this->makeCategory('Category 6'));                                          // amountOrders=0, categoryRevenue=0
 
+        /** @var Category[] $categories */
         $categories = $this->em
             ->createQuery(
                 'SELECT c FROM ' . Category::class . ' c ' .
@@ -185,6 +187,8 @@ final class FormulaInFormulaTest extends SingleInheritedOrmTestCase
         $this->createCategoryWithProducts($this->makeCategory('Category 6'));                                          // amountOrders=0, categoryRevenue=0
 
         // AVG = (60+140+200+110+210+0)/6 = 120
+
+        /** @var Category[] $categories */
         $categories = $this->em->createQueryBuilder()
             ->select('c')
             ->from(Category::class, 'c')

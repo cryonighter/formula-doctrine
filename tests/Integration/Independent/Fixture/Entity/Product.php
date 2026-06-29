@@ -22,7 +22,7 @@ class Product
 
     // Formula and Column together - formula priority
     // #[Formula('(SELECT COUNT(*) FROM order_items oi WHERE oi.product_id = {this}.id)')]
-    #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}')]
+    #[Formula('SELECT COUNT(oi) FROM ' . OrderItem::class . ' oi WHERE oi.product = {this}', alias: 'cnt')]
     #[ORM\Column(name: 'order_count')]
     public int $orderCount = 0;
 
